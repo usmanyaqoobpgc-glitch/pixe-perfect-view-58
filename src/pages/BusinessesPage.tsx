@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useServerFn } from '@tanstack/react-start';
+import { generateBusinessPlan } from '@/lib/ai-planner.functions';
 import { useAuth } from '@/lib/auth';
 import { EmptyState, LoadingState, PageHeader, ConfirmDialog } from '@/components/ui';
 import { Link } from '@tanstack/react-router';
@@ -9,6 +11,7 @@ import type { Business, BusinessPlan } from '@/lib/types';
 import { SECTION_LABELS } from '@/lib/types';
 
 export function BusinessesPage() {
+  const regeneratePlan = useServerFn(generateBusinessPlan);
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -102,14 +105,7 @@ export function BusinessesPage() {
                     <h4 className="font-semibold text-slate-900 dark:text-white">{SECTION_LABELS[section] || section}</h4>
                     <button
                       onClick={async () => {
-                        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-planner`, {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-                          },
-                          body: JSON.stringify({ businessId: selected.id, regenerateSection: section }),
-                        });
+                        await regeneratePlan({ data: { businessId: selected.id, regenerateSection: section } });
                         load();
                       }}
                       className="text-xs text-primary-600 hover:underline flex items-center gap-1"

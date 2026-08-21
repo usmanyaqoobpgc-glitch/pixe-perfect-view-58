@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { useServerFn } from '@tanstack/react-start';
+import { deleteMyAccount } from '@/lib/ai-planner.functions';
 import { LoadingState, PageHeader, ConfirmDialog } from '@/components/ui';
 import {
   Settings as SettingsIcon, User, Palette, Shield, Trash2, Download, Check,
@@ -9,6 +11,7 @@ import {
 type Tab = 'profile' | 'appearance' | 'privacy' | 'data';
 
 export function SettingsPage() {
+  const removeAccount = useServerFn(deleteMyAccount);
   const { user, profile, refreshProfile, signOut } = useAuth();
   const [tab, setTab] = useState<Tab>('profile');
   const [fullName, setFullName] = useState(profile?.full_name ?? '');
@@ -58,18 +61,7 @@ export function SettingsPage() {
         setDeleteLoading(false);
         return;
       }
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
-      if (!response.ok) {
-        setDeleteError('Failed to delete account. Please try again or contact support.');
-        setDeleteLoading(false);
-        return;
-      }
+      await removeAccount({});
       await signOut();
     } catch {
       setDeleteError('Failed to delete account. Please try again or contact support.');
