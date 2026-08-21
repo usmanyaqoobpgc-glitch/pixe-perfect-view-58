@@ -10,33 +10,258 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AgentsRouteImport } from './routes/agents'
+import { Route as AnalyticsRouteImport } from './routes/analytics'
+import { Route as BillingRouteImport } from './routes/billing'
+import { Route as BusinessesRouteImport } from './routes/businesses'
+import { Route as CompetitorsRouteImport } from './routes/competitors'
+import { Route as CustomersRouteImport } from './routes/customers'
+import { Route as GoalsRouteImport } from './routes/goals'
+import { Route as LeadsRouteImport } from './routes/leads'
+import { Route as MarketResearchRouteImport } from './routes/market-research'
+import { Route as MarketingRouteImport } from './routes/marketing'
+import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as PlannerRouteImport } from './routes/planner'
+import { Route as SecurityRouteImport } from './routes/security'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as TasksRouteImport } from './routes/tasks'
+import { Route as WebsiteBuilderRouteImport } from './routes/website-builder'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentsRoute = AgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsRoute = AnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingRoute = BillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BusinessesRoute = BusinessesRouteImport.update({
+  id: '/businesses',
+  path: '/businesses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompetitorsRoute = CompetitorsRouteImport.update({
+  id: '/competitors',
+  path: '/competitors',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomersRoute = CustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GoalsRoute = GoalsRouteImport.update({
+  id: '/goals',
+  path: '/goals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeadsRoute = LeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketResearchRoute = MarketResearchRouteImport.update({
+  id: '/market-research',
+  path: '/market-research',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketingRoute = MarketingRouteImport.update({
+  id: '/marketing',
+  path: '/marketing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlannerRoute = PlannerRouteImport.update({
+  id: '/planner',
+  path: '/planner',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SecurityRoute = SecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TasksRoute = TasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WebsiteBuilderRoute = WebsiteBuilderRouteImport.update({
+  id: '/website-builder',
+  path: '/website-builder',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/agents': typeof AgentsRoute
+  '/analytics': typeof AnalyticsRoute
+  '/billing': typeof BillingRoute
+  '/businesses': typeof BusinessesRoute
+  '/competitors': typeof CompetitorsRoute
+  '/customers': typeof CustomersRoute
+  '/goals': typeof GoalsRoute
+  '/leads': typeof LeadsRoute
+  '/market-research': typeof MarketResearchRoute
+  '/marketing': typeof MarketingRoute
+  '/notifications': typeof NotificationsRoute
+  '/planner': typeof PlannerRoute
+  '/security': typeof SecurityRoute
+  '/settings': typeof SettingsRoute
+  '/tasks': typeof TasksRoute
+  '/website-builder': typeof WebsiteBuilderRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/agents': typeof AgentsRoute
+  '/analytics': typeof AnalyticsRoute
+  '/billing': typeof BillingRoute
+  '/businesses': typeof BusinessesRoute
+  '/competitors': typeof CompetitorsRoute
+  '/customers': typeof CustomersRoute
+  '/goals': typeof GoalsRoute
+  '/leads': typeof LeadsRoute
+  '/market-research': typeof MarketResearchRoute
+  '/marketing': typeof MarketingRoute
+  '/notifications': typeof NotificationsRoute
+  '/planner': typeof PlannerRoute
+  '/security': typeof SecurityRoute
+  '/settings': typeof SettingsRoute
+  '/tasks': typeof TasksRoute
+  '/website-builder': typeof WebsiteBuilderRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/agents': typeof AgentsRoute
+  '/analytics': typeof AnalyticsRoute
+  '/billing': typeof BillingRoute
+  '/businesses': typeof BusinessesRoute
+  '/competitors': typeof CompetitorsRoute
+  '/customers': typeof CustomersRoute
+  '/goals': typeof GoalsRoute
+  '/leads': typeof LeadsRoute
+  '/market-research': typeof MarketResearchRoute
+  '/marketing': typeof MarketingRoute
+  '/notifications': typeof NotificationsRoute
+  '/planner': typeof PlannerRoute
+  '/security': typeof SecurityRoute
+  '/settings': typeof SettingsRoute
+  '/tasks': typeof TasksRoute
+  '/website-builder': typeof WebsiteBuilderRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/agents'
+    | '/analytics'
+    | '/billing'
+    | '/businesses'
+    | '/competitors'
+    | '/customers'
+    | '/goals'
+    | '/leads'
+    | '/market-research'
+    | '/marketing'
+    | '/notifications'
+    | '/planner'
+    | '/security'
+    | '/settings'
+    | '/tasks'
+    | '/website-builder'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/admin'
+    | '/agents'
+    | '/analytics'
+    | '/billing'
+    | '/businesses'
+    | '/competitors'
+    | '/customers'
+    | '/goals'
+    | '/leads'
+    | '/market-research'
+    | '/marketing'
+    | '/notifications'
+    | '/planner'
+    | '/security'
+    | '/settings'
+    | '/tasks'
+    | '/website-builder'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/agents'
+    | '/analytics'
+    | '/billing'
+    | '/businesses'
+    | '/competitors'
+    | '/customers'
+    | '/goals'
+    | '/leads'
+    | '/market-research'
+    | '/marketing'
+    | '/notifications'
+    | '/planner'
+    | '/security'
+    | '/settings'
+    | '/tasks'
+    | '/website-builder'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  AgentsRoute: typeof AgentsRoute
+  AnalyticsRoute: typeof AnalyticsRoute
+  BillingRoute: typeof BillingRoute
+  BusinessesRoute: typeof BusinessesRoute
+  CompetitorsRoute: typeof CompetitorsRoute
+  CustomersRoute: typeof CustomersRoute
+  GoalsRoute: typeof GoalsRoute
+  LeadsRoute: typeof LeadsRoute
+  MarketResearchRoute: typeof MarketResearchRoute
+  MarketingRoute: typeof MarketingRoute
+  NotificationsRoute: typeof NotificationsRoute
+  PlannerRoute: typeof PlannerRoute
+  SecurityRoute: typeof SecurityRoute
+  SettingsRoute: typeof SettingsRoute
+  TasksRoute: typeof TasksRoute
+  WebsiteBuilderRoute: typeof WebsiteBuilderRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +273,147 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agents': {
+      id: '/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AgentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics': {
+      id: '/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing': {
+      id: '/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof BillingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/businesses': {
+      id: '/businesses'
+      path: '/businesses'
+      fullPath: '/businesses'
+      preLoaderRoute: typeof BusinessesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/competitors': {
+      id: '/competitors'
+      path: '/competitors'
+      fullPath: '/competitors'
+      preLoaderRoute: typeof CompetitorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/customers': {
+      id: '/customers'
+      path: '/customers'
+      fullPath: '/customers'
+      preLoaderRoute: typeof CustomersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/goals': {
+      id: '/goals'
+      path: '/goals'
+      fullPath: '/goals'
+      preLoaderRoute: typeof GoalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leads': {
+      id: '/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof LeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/market-research': {
+      id: '/market-research'
+      path: '/market-research'
+      fullPath: '/market-research'
+      preLoaderRoute: typeof MarketResearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketing': {
+      id: '/marketing'
+      path: '/marketing'
+      fullPath: '/marketing'
+      preLoaderRoute: typeof MarketingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/planner': {
+      id: '/planner'
+      path: '/planner'
+      fullPath: '/planner'
+      preLoaderRoute: typeof PlannerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/security': {
+      id: '/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof SecurityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tasks': {
+      id: '/tasks'
+      path: '/tasks'
+      fullPath: '/tasks'
+      preLoaderRoute: typeof TasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/website-builder': {
+      id: '/website-builder'
+      path: '/website-builder'
+      fullPath: '/website-builder'
+      preLoaderRoute: typeof WebsiteBuilderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  AgentsRoute: AgentsRoute,
+  AnalyticsRoute: AnalyticsRoute,
+  BillingRoute: BillingRoute,
+  BusinessesRoute: BusinessesRoute,
+  CompetitorsRoute: CompetitorsRoute,
+  CustomersRoute: CustomersRoute,
+  GoalsRoute: GoalsRoute,
+  LeadsRoute: LeadsRoute,
+  MarketResearchRoute: MarketResearchRoute,
+  MarketingRoute: MarketingRoute,
+  NotificationsRoute: NotificationsRoute,
+  PlannerRoute: PlannerRoute,
+  SecurityRoute: SecurityRoute,
+  SettingsRoute: SettingsRoute,
+  TasksRoute: TasksRoute,
+  WebsiteBuilderRoute: WebsiteBuilderRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

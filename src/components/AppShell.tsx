@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from '@tanstack/react-router';
+import { Link, useLocation } from '@tanstack/react-router';
 import { useAuth } from '@/lib/auth';
 import { useTheme } from '@/lib/useTheme';
 import { cn } from '@/lib/format';
@@ -84,22 +84,20 @@ export function AppShell({ children }: { children: ReactNode }) {
               </p>
               <div className="space-y-0.5">
                 {visibleItems.filter((i) => i.section === section).map((item) => (
-                  <NavLink
+                  <Link
                     key={item.path}
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 group',
-                        isActive
-                          ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400'
-                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
-                      )
-                    }
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 group',
+                      location.pathname === item.path
+                        ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                    )}
                   >
                     <item.icon className="w-4 h-4 shrink-0" />
                     <span>{item.label}</span>
-                  </NavLink>
+                  </Link>
                 ))}
               </div>
             </div>
