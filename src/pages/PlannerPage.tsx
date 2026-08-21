@@ -134,7 +134,7 @@ export function PlannerPage() {
         type: 'ai',
       });
 
-      setTimeout(() => navigate('/businesses'), 2000);
+      setTimeout(() => navigate({ to: '/businesses' }), 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {

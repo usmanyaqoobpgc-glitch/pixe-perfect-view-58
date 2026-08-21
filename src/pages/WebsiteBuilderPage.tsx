@@ -54,9 +54,9 @@ export function WebsiteBuilderPage() {
   const handleSave = async () => {
     setSaving(true);
     if (draft) {
-      await supabase.from('website_drafts').update({ content, version: draft.version + 1 }).eq('id', draft.id);
+      await supabase.from('website_drafts').update({ content: content as unknown as Record<string, unknown>, version: draft.version + 1 }).eq('id', draft.id);
     } else {
-      const { data } = await supabase.from('website_drafts').insert({ business_id: selectedBiz, content }).select().single();
+      const { data } = await supabase.from('website_drafts').insert({ business_id: selectedBiz, content: content as unknown as Record<string, unknown> }).select().single();
       setDraft(data as WebsiteDraft);
     }
     setSaving(false);
@@ -64,7 +64,7 @@ export function WebsiteBuilderPage() {
 
   const handlePublish = async () => {
     setPublishConfirm(false);
-    await supabase.from('website_drafts').update({ is_published: true, published_url: `https://preview.example.com/${selectedBiz}` }).eq('id', draft?.id);
+    await supabase.from('website_drafts').update({ is_published: true, published_url: `https://preview.example.com/${selectedBiz}` }).eq('id', draft?.id ?? '');
     if (draft) setDraft({ ...draft, is_published: true, published_url: `https://preview.example.com/${selectedBiz}` });
   };
 

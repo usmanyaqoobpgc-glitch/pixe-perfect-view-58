@@ -30,10 +30,10 @@ export function SettingsPage() {
 
   const exportData = async () => {
     setExportLoading(true);
-    const tables = ['businesses', 'business_plans', 'milestones', 'tasks', 'leads', 'customers', 'revenue_records', 'marketing_content', 'website_drafts', 'notifications', 'audit_logs', 'security_events'];
+    const tables: string[] = ['businesses', 'business_plans', 'milestones', 'tasks', 'leads', 'customers', 'revenue_records', 'marketing_content', 'website_drafts', 'notifications', 'audit_logs', 'security_events'];
     const exportData: Record<string, unknown> = {};
     for (const table of tables) {
-      const { data } = await supabase.from(table).select('*');
+      const { data } = await (supabase as unknown as { from: (t: string) => { select: (c: string) => Promise<{ data: unknown }> } }).from(table).select('*');
       exportData[table] = data;
     }
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
