@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useServerFn } from '@tanstack/react-start';
+import { generateBusinessPlan } from '@/lib/ai-planner.functions';
 import { useAuth } from '@/lib/auth';
 import { PageHeader } from '@/components/ui';
 import { useNavigate } from '@tanstack/react-router';
@@ -32,6 +34,7 @@ const CHANNELS = [
 ];
 
 export function PlannerPage() {
+  const generatePlan = useServerFn(generateBusinessPlan);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
@@ -107,24 +110,7 @@ export function PlannerPage() {
 
       if (bizError) throw new Error(bizError.message);
 
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-planner`;
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
-        body: JSON.stringify({ businessId: business.id }),
-      });
-
-      if (!response.ok) {
-        const errBody = await response.json().catch(() => ({}));
-        throw new Error(errBody.error || `Generation failed (${response.status})`);
-      }
-
-      const result = await response.json();
-      if (result.error) throw new Error(result.error);
-
+      const result = await generatePlan({ data: { businessId: business.id } });
       setGeneratedSections(result.sections || []);
 
       await supabase.from('notifications').insert({
@@ -134,7 +120,7 @@ export function PlannerPage() {
         type: 'ai',
       });
 
-      setTimeout(() => navigate('/businesses'), 2000);
+      setTimeout(() => navigate({ to: '/businesses' }), 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
