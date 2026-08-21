@@ -194,3 +194,22 @@ export async function buildAndStorePlan(
 
   return { sections: sections.map((s) => s.key), source };
 }
+
+export async function runPlanner(
+  supabase: SupabaseClient,
+  userId: string,
+  businessId: string,
+  regenerateSection?: string,
+) {
+  const { data: business, error } = await supabase
+    .from("businesses")
+    .select("*")
+    .eq("id", businessId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!business) throw new Error("Business not found");
+
+  return buildAndStorePlan(supabase, businessId, business as BusinessInput, regenerateSection);
+}
