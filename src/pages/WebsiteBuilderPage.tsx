@@ -54,9 +54,9 @@ export function WebsiteBuilderPage() {
   const handleSave = async () => {
     setSaving(true);
     if (draft) {
-      await supabase.from('website_drafts').update({ content: content as unknown as Record<string, unknown>, version: draft.version + 1 }).eq('id', draft.id);
+      await supabase.from('website_drafts').update({ content: JSON.parse(JSON.stringify(content)), version: draft.version + 1 }).eq('id', draft.id);
     } else {
-      const { data } = await supabase.from('website_drafts').insert({ business_id: selectedBiz, content: content as unknown as Record<string, unknown> }).select().single();
+      const { data } = await supabase.from('website_drafts').insert({ business_id: selectedBiz, content: JSON.parse(JSON.stringify(content)) }).select().single();
       setDraft(data as WebsiteDraft);
     }
     setSaving(false);

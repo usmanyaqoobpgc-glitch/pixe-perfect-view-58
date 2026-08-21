@@ -111,8 +111,6 @@ export function PlannerPage() {
       if (bizError) throw new Error(bizError.message);
 
       const result = await generatePlan({ data: { businessId: business.id } });
-      if (result.error) throw new Error(result.error);
-
       setGeneratedSections(result.sections || []);
 
       await supabase.from('notifications').insert({
