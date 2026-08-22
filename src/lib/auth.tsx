@@ -117,7 +117,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       options: { data: { full_name: fullName } },
     });
     if (error) return { error: error.message };
-    if (data.user) {
+    // Only log when sign-up returned an active session; without one the insert
+    // is unauthenticated and is (correctly) rejected by RLS.
+    if (data.user && data.session) {
       await supabase.from('security_events').insert({
         user_id: data.user.id,
         event_type: 'login_success',
