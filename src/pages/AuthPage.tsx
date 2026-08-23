@@ -1,11 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Sparkles, Eye, EyeOff, Smartphone, ArrowLeft } from 'lucide-react';
 
-export function AuthPage() {
-  const { signIn, signUp, resetPassword, challengeMFA, verifyMFAChallenge } = useAuth();
-  const [mode, setMode] = useState<'signin' | 'signup' | 'reset' | 'mfa'>('signin');
+export function AuthPage({ forceMFA = false }: { forceMFA?: boolean }) {
+  const { signIn, signUp, resetPassword, challengeMFA, verifyMFAChallenge, signOut } = useAuth();
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset' | 'mfa'>(forceMFA ? 'mfa' : 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -27,6 +27,36 @@ export function AuthPage() {
   };
   const passwordValid = Object.values(passwordChecks).every(Boolean);
 
+  const startMFAChallenge = async () => {
+    const { data: factors } = await supabase.auth.mfa.listFactors();
+    const verifiedFactor = (factors?.all ?? []).find(
+      (f: { status: string; factor_type: string }) => f.status === 'verified' && f.factor_type === 'totp'
+    );
+    if (!verifiedFactor) {
+      setError('MFA is required but no verified factor was found. Please contact support.');
+      return false;
+    }
+    setMfaFactorId(verifiedFactor.id);
+    const result = await challengeMFA(verifiedFactor.id);
+    if (result.error) {
+      setError(result.error);
+      return false;
+    }
+    setMfaChallengeId(result.challengeId ?? null);
+    setMode('mfa');
+    return true;
+  };
+
+  // Session exists at aal1 but the account has MFA: challenge immediately.
+  useEffect(() => {
+    if (!forceMFA) return;
+    setMode('mfa');
+    if (!mfaChallengeId) {
+      void startMFAChallenge();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forceMFA]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -39,24 +69,7 @@ export function AuthPage() {
         if (error) {
           setError(error);
         } else if (needsMFA) {
-          // User has MFA enabled — start the challenge flow
-          const { data: factors } = await supabase.auth.mfa.listFactors();
-          const verifiedFactor = (factors?.all ?? []).find(
-            (f: { status: string; factor_type: string }) => f.status === 'verified' && f.factor_type === 'totp'
-          );
-          if (verifiedFactor) {
-            setMfaFactorId(verifiedFactor.id);
-            const result = await challengeMFA(verifiedFactor.id);
-            if (result.error) {
-              setError(result.error);
-            } else {
-              setMfaChallengeId(result.challengeId ?? null);
-              setMode('mfa');
-            }
-          } else {
-            // MFA required but no verified factor — shouldn't happen, but handle gracefully
-            setError('MFA is required but no verified factor was found. Please contact support.');
-          }
+          await startMFAChallenge();
         }
       } else if (mode === 'signup') {
         if (!passwordValid) {
@@ -93,7 +106,8 @@ export function AuthPage() {
     }
   };
 
-  const backToSignIn = () => {
+  const backToSignIn = async () => {
+    if (forceMFA) await signOut();
     setMode('signin');
     setMfaCode('');
     setMfaFactorId(null);
@@ -155,7 +169,7 @@ export function AuthPage() {
               </form>
 
               <button
-                onClick={backToSignIn}
+                onClick={() => void backToSignIn()}
                 className="mt-4 flex items-center gap-1 text-sm text-slate-500 hover:text-primary-600"
               >
                 <ArrowLeft className="w-4 h-4" /> Back to sign in
