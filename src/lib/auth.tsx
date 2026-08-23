@@ -308,6 +308,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         return { error: error.message };
       }
+      // Session is now aal2 — clear the pending-challenge gate.
+      await refreshMFAStatus();
       return { error: null };
     } catch (err) {
       return { error: err instanceof Error ? err.message : 'Failed to verify MFA' };
@@ -319,6 +321,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: session?.user ?? null,
     profile,
     loading,
+    mfaRequired,
+    refreshMFAStatus,
     signIn,
     signUp,
     signOut,
