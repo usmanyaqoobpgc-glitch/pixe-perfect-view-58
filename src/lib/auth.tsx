@@ -19,6 +19,9 @@ interface AuthContextValue {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  /** true when the signed-in user has a verified MFA factor but the session is still aal1 */
+  mfaRequired: boolean;
+  refreshMFAStatus: () => Promise<boolean>;
   signIn: (email: string, password: string) => Promise<{ error: string | null; needsMFA?: boolean }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
