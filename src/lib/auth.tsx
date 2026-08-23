@@ -19,6 +19,9 @@ interface AuthContextValue {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  /** true when the signed-in user has a verified MFA factor but the session is still aal1 */
+  mfaRequired: boolean;
+  refreshMFAStatus: () => Promise<boolean>;
   signIn: (email: string, password: string) => Promise<{ error: string | null; needsMFA?: boolean }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -40,6 +43,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mfaRequired, setMfaRequired] = useState(false);
+
+  /** Returns true when the session must still complete an MFA challenge. */
+  const refreshMFAStatus = async (): Promise<boolean> => {
+    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (error || !data) {
+      setMfaRequired(false);
+      return false;
+    }
+    const required = data.nextLevel === 'aal2' && data.currentLevel !== data.nextLevel;
+    setMfaRequired(required);
+    return required;
+  };
+
 
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
@@ -55,24 +72,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        fetchProfile(session.user.id).finally(() => setLoading(false));
+        await refreshMFAStatus();
+        await fetchProfile(session.user.id);
       } else {
-        setLoading(false);
+        setMfaRequired(false);
       }
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       (async () => {
         setSession(newSession);
         if (newSession?.user) {
+          await refreshMFAStatus();
           await fetchProfile(newSession.user.id);
         } else {
           setProfile(null);
+          setMfaRequired(false);
         }
         setLoading(false);
+
 
         if (event === 'SIGNED_IN' && newSession?.user) {
           await supabase.from('security_events').insert({
@@ -107,7 +129,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       return { error: error.message };
     }
-    return { error: null };
+    // Password auth succeeded (aal1). If the user has a verified factor, the
+    // session must be elevated to aal2 before the app is usable.
+    const needsMFA = await refreshMFAStatus();
+    return { error: null, needsMFA };
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
@@ -283,6 +308,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         return { error: error.message };
       }
+      // Session is now aal2 — clear the pending-challenge gate.
+      await refreshMFAStatus();
       return { error: null };
     } catch (err) {
       return { error: err instanceof Error ? err.message : 'Failed to verify MFA' };
@@ -294,6 +321,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: session?.user ?? null,
     profile,
     loading,
+    mfaRequired,
+    refreshMFAStatus,
     signIn,
     signUp,
     signOut,

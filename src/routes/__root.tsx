@@ -119,7 +119,7 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 function AuthGate() {
-  const { session, loading } = useAuth();
+  const { session, loading, mfaRequired } = useAuth();
   useTheme();
 
   if (loading) {
@@ -131,6 +131,10 @@ function AuthGate() {
   }
 
   if (!session) return <AuthPage />;
+
+  // Password-authenticated but the account has a verified MFA factor: the
+  // session is still aal1, so require the TOTP challenge before the app renders.
+  if (mfaRequired) return <AuthPage forceMFA />;
 
   return (
     <AppShell>
