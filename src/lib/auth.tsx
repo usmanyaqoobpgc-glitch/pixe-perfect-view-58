@@ -129,7 +129,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       return { error: error.message };
     }
-    return { error: null };
+    // Password auth succeeded (aal1). If the user has a verified factor, the
+    // session must be elevated to aal2 before the app is usable.
+    const needsMFA = await refreshMFAStatus();
+    return { error: null, needsMFA };
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
