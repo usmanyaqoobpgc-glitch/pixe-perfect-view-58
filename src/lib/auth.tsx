@@ -87,11 +87,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (async () => {
         setSession(newSession);
         if (newSession?.user) {
+          await refreshMFAStatus();
           await fetchProfile(newSession.user.id);
         } else {
           setProfile(null);
+          setMfaRequired(false);
         }
         setLoading(false);
+
 
         if (event === 'SIGNED_IN' && newSession?.user) {
           await supabase.from('security_events').insert({
