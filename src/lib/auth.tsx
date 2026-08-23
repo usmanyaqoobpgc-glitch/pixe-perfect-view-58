@@ -43,6 +43,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mfaRequired, setMfaRequired] = useState(false);
+
+  /** Returns true when the session must still complete an MFA challenge. */
+  const refreshMFAStatus = async (): Promise<boolean> => {
+    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (error || !data) {
+      setMfaRequired(false);
+      return false;
+    }
+    const required = data.nextLevel === 'aal2' && data.currentLevel !== data.nextLevel;
+    setMfaRequired(required);
+    return required;
+  };
+
 
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
