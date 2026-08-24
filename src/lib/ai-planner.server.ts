@@ -65,6 +65,43 @@ function coerceSections(raw: unknown): PlanSection[] {
   return result;
 }
 
+/** Accumulates the assistant message content from an SSE chat-completions stream. */
+async function readStreamedContent(response: Response): Promise<string> {
+  const body = response.body;
+  if (!body) throw new Error("AI gateway returned an empty response body");
+
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let content = "";
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let index: number;
+    while ((index = buffer.indexOf("\n")) !== -1) {
+      const line = buffer.slice(0, index).trim();
+      buffer = buffer.slice(index + 1);
+      if (!line.startsWith("data:")) continue;
+      const data = line.slice(5).trim();
+      if (data === "[DONE]") continue;
+      try {
+        const chunk = JSON.parse(data) as {
+          choices?: { delta?: { content?: string }; message?: { content?: string } }[];
+        };
+        content +=
+          chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content ?? "";
+      } catch {
+        // ignore keep-alive / partial frames
+      }
+    }
+  }
+
+  return content;
+}
+
 /**
  * Calls the Lovable AI gateway. The API key never leaves the server: it is read
  * from the runtime secret LOVABLE_API_KEY inside this handler.
@@ -86,6 +123,10 @@ export async function generatePlanWithLLM(business: BusinessInput): Promise<Plan
         { role: "user", content: buildUserPrompt(business) },
       ],
       response_format: { type: "json_object" },
+      // Stream so bytes keep flowing during the long generation; a buffered
+      // request stays silent for minutes and gets severed by the platform,
+      // which surfaces in the browser as "Failed to fetch".
+      stream: true,
     }),
   });
 
@@ -94,11 +135,9 @@ export async function generatePlanWithLLM(business: BusinessInput): Promise<Plan
     throw new Error(`AI gateway error ${response.status}: ${detail.slice(0, 300)}`);
   }
 
-  const payload = (await response.json()) as {
-    choices?: { message?: { content?: string } }[];
-  };
-  const content = payload.choices?.[0]?.message?.content ?? "";
+  const content = await readStreamedContent(response);
   const cleaned = content.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "");
+
 
   let parsed: unknown;
   try {
