@@ -86,6 +86,10 @@ export async function generatePlanWithLLM(business: BusinessInput): Promise<Plan
         { role: "user", content: buildUserPrompt(business) },
       ],
       response_format: { type: "json_object" },
+      // Stream so bytes keep flowing during the long generation; a buffered
+      // request stays silent for minutes and gets severed by the platform,
+      // which surfaces in the browser as "Failed to fetch".
+      stream: true,
     }),
   });
 
@@ -94,11 +98,9 @@ export async function generatePlanWithLLM(business: BusinessInput): Promise<Plan
     throw new Error(`AI gateway error ${response.status}: ${detail.slice(0, 300)}`);
   }
 
-  const payload = (await response.json()) as {
-    choices?: { message?: { content?: string } }[];
-  };
-  const content = payload.choices?.[0]?.message?.content ?? "";
+  const content = await readStreamedContent(response);
   const cleaned = content.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "");
+
 
   let parsed: unknown;
   try {
