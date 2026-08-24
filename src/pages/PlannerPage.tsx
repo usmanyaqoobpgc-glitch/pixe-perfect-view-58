@@ -110,8 +110,23 @@ export function PlannerPage() {
 
       if (bizError) throw new Error(bizError.message);
 
-      const result = await generatePlan({ data: { businessId: business.id } });
-      setGeneratedSections(result.sections || []);
+      let sections: string[];
+      try {
+        const result = await generatePlan({ data: { businessId: business.id } });
+        sections = result.sections || [];
+      } catch (err) {
+        // A dropped/severed connection ("Failed to fetch") does not stop the
+        // server from finishing and persisting the plan — poll for the result
+        // before treating it as a failure.
+        const networkFailure =
+          err instanceof TypeError || /failed to fetch|network|load failed/i.test(String(err));
+        if (!networkFailure) throw err;
+
+        sections = await waitForPersistedPlan(business.id);
+        if (sections.length === 0) throw err;
+      }
+      setGeneratedSections(sections);
+
 
       await supabase.from('notifications').insert({
         user_id: user!.id,
