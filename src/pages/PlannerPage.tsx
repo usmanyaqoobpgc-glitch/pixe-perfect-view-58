@@ -33,6 +33,30 @@ const CHANNELS = [
   'Community / Forums', 'Influencer',
 ];
 
+/**
+ * Polls business_plans for a business until sections show up (the server may
+ * have finished persisting even if the client connection dropped).
+ */
+async function waitForPersistedPlan(
+  businessId: string,
+  { attempts = 20, intervalMs = 3000 }: { attempts?: number; intervalMs?: number } = {}
+): Promise<string[]> {
+  for (let i = 0; i < attempts; i++) {
+    const { data } = await supabase
+      .from('business_plans')
+      .select('section_key')
+      .eq('business_id', businessId);
+    const sections = (data ?? []).map((r) => r.section_key as string);
+    if (sections.length >= PLAN_SECTIONS.length) return sections;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  const { data } = await supabase
+    .from('business_plans')
+    .select('section_key')
+    .eq('business_id', businessId);
+  return (data ?? []).map((r) => r.section_key as string);
+}
+
 export function PlannerPage() {
   const generatePlan = useServerFn(generateBusinessPlan);
   const { user } = useAuth();
