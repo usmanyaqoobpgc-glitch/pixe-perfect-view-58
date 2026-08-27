@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useServerFn } from '@tanstack/react-start';
 import { generateBusinessPlan } from '@/lib/ai-planner.functions';
@@ -63,6 +63,12 @@ export function PlannerPage() {
   const [generating, setGenerating] = useState(false);
   const [generatedSections, setGeneratedSections] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Synchronous re-entrancy guard (state updates are not immediate).
+  const inFlight = useRef(false);
+  // Business created for this wizard run; reused on retry so we never create a
+  // duplicate business or trigger a second generation.
+  const businessIdRef = useRef<string | null>(null);
+
 
   const [form, setForm] = useState({
     idea: '',
