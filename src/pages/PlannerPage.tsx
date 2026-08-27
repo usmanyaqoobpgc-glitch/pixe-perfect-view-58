@@ -34,28 +34,26 @@ const CHANNELS = [
 ];
 
 /**
- * Polls business_plans for a business until sections show up (the server may
+ * Polls business_plans until all unique sections are persisted (the server may
  * have finished persisting even if the client connection dropped).
  */
 async function waitForPersistedPlan(
   businessId: string,
-  { attempts = 20, intervalMs = 3000 }: { attempts?: number; intervalMs?: number } = {}
+  { attempts = 60, intervalMs = 3000 }: { attempts?: number; intervalMs?: number } = {}
 ): Promise<string[]> {
+  let sections: string[] = [];
   for (let i = 0; i < attempts; i++) {
     const { data } = await supabase
       .from('business_plans')
       .select('section_key')
       .eq('business_id', businessId);
-    const sections = (data ?? []).map((r) => r.section_key as string);
+    sections = Array.from(new Set((data ?? []).map((r) => String(r.section_key))));
     if (sections.length >= PLAN_SECTIONS.length) return sections;
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
-  const { data } = await supabase
-    .from('business_plans')
-    .select('section_key')
-    .eq('business_id', businessId);
-  return (data ?? []).map((r) => r.section_key as string);
+  return sections;
 }
+
 
 export function PlannerPage() {
   const generatePlan = useServerFn(generateBusinessPlan);
