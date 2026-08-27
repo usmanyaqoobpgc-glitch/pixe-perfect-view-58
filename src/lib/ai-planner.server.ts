@@ -151,14 +151,36 @@ export async function generatePlanWithLLM(business: BusinessInput): Promise<Plan
   return sections;
 }
 
+/** Section keys already persisted for a business (deduplicated). */
+async function persistedSectionKeys(
+  supabase: SupabaseClient,
+  businessId: string,
+): Promise<string[]> {
+  const { data } = await supabase
+    .from("business_plans")
+    .select("section_key")
+    .eq("business_id", businessId);
+  return Array.from(new Set((data ?? []).map((r) => String(r.section_key))));
+}
+
 export async function buildAndStorePlan(
   supabase: SupabaseClient,
   businessId: string,
   business: BusinessInput,
   regenerateSection?: string,
-): Promise<{ sections: string[]; source: "llm" | "template" }> {
+): Promise<{ sections: string[]; source: "llm" | "template" | "existing" }> {
+  // Idempotency: if a previous (possibly disconnected) run already persisted the
+  // full plan, never call the gateway again — just return what exists.
+  if (!regenerateSection) {
+    const existing = await persistedSectionKeys(supabase, businessId);
+    if (existing.length >= SECTION_KEYS.length) {
+      return { sections: existing, source: "existing" };
+    }
+  }
+
   let sections: PlanSection[];
   let source: "llm" | "template" = "llm";
+
 
   try {
     sections = await generatePlanWithLLM(business);
