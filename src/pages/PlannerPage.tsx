@@ -111,37 +111,46 @@ export function PlannerPage() {
   };
 
   const handleGenerate = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setGenerating(true);
     setError(null);
     setGeneratedSections([]);
 
     try {
-      const { data: business, error: bizError } = await supabase
-        .from('businesses')
-        .insert({
-          user_id: user!.id,
-          name: form.idea.slice(0, 50) + '...',
-          idea: form.idea,
-          budget: Number(form.budget),
-          country: form.country,
-          target_customer: form.target_customer,
-          skills: form.skills.split(',').map((s) => s.trim()).filter(Boolean),
-          available_time_hours_per_week: Number(form.available_time),
-          business_model: form.business_model,
-          revenue_target: Number(form.revenue_target),
-          target_deadline: form.target_deadline,
-          marketing_channels: form.marketing_channels,
-          status: 'planning',
-        })
-        .select()
-        .single();
+      // Reuse the business from a previous attempt so a retry never creates a
+      // duplicate business nor a second generation run.
+      let businessId = businessIdRef.current;
+      if (!businessId) {
+        const { data: business, error: bizError } = await supabase
+          .from('businesses')
+          .insert({
+            user_id: user!.id,
+            name: form.idea.slice(0, 50) + '...',
+            idea: form.idea,
+            budget: Number(form.budget),
+            country: form.country,
+            target_customer: form.target_customer,
+            skills: form.skills.split(',').map((s) => s.trim()).filter(Boolean),
+            available_time_hours_per_week: Number(form.available_time),
+            business_model: form.business_model,
+            revenue_target: Number(form.revenue_target),
+            target_deadline: form.target_deadline,
+            marketing_channels: form.marketing_channels,
+            status: 'planning',
+          })
+          .select()
+          .single();
 
-      if (bizError) throw new Error(bizError.message);
+        if (bizError) throw new Error(bizError.message);
+        businessId = business.id as string;
+        businessIdRef.current = businessId;
+      }
 
       let sections: string[];
       try {
-        const result = await generatePlan({ data: { businessId: business.id } });
-        sections = result.sections || [];
+        const result = await generatePlan({ data: { businessId } });
+        sections = Array.from(new Set(result.sections || []));
       } catch (err) {
         // A dropped/severed connection ("Failed to fetch") does not stop the
         // server from finishing and persisting the plan — poll for the result
@@ -150,8 +159,8 @@ export function PlannerPage() {
           err instanceof TypeError || /failed to fetch|network|load failed/i.test(String(err));
         if (!networkFailure) throw err;
 
-        sections = await waitForPersistedPlan(business.id);
-        if (sections.length === 0) throw err;
+        sections = await waitForPersistedPlan(businessId);
+        if (sections.length < PLAN_SECTIONS.length) throw err;
       }
       setGeneratedSections(sections);
 
@@ -167,9 +176,11 @@ export function PlannerPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
+      inFlight.current = false;
       setGenerating(false);
     }
   };
+
 
   if (generating) {
     return (
