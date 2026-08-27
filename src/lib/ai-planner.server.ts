@@ -229,9 +229,12 @@ export async function buildAndStorePlan(
         }));
       });
     if (milestoneRows.length > 0) {
+      // Replace instead of append so a re-run can't duplicate rows.
+      await supabase.from("milestones").delete().eq("business_id", businessId);
       const { error } = await supabase.from("milestones").insert(milestoneRows);
       if (error) console.error("Milestone insert error:", error.message);
     }
+
 
     const taskRows = sections
       .filter((s) => s.key === "daily_tasks")
@@ -248,9 +251,11 @@ export async function buildAndStorePlan(
         }));
       });
     if (taskRows.length > 0) {
+      await supabase.from("tasks").delete().eq("business_id", businessId);
       const { error } = await supabase.from("tasks").insert(taskRows);
       if (error) console.error("Task insert error:", error.message);
     }
+
   }
 
   return { sections: sections.map((s) => s.key), source };
