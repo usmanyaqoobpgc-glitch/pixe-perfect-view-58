@@ -151,14 +151,36 @@ export async function generatePlanWithLLM(business: BusinessInput): Promise<Plan
   return sections;
 }
 
+/** Section keys already persisted for a business (deduplicated). */
+async function persistedSectionKeys(
+  supabase: SupabaseClient,
+  businessId: string,
+): Promise<string[]> {
+  const { data } = await supabase
+    .from("business_plans")
+    .select("section_key")
+    .eq("business_id", businessId);
+  return Array.from(new Set((data ?? []).map((r) => String(r.section_key))));
+}
+
 export async function buildAndStorePlan(
   supabase: SupabaseClient,
   businessId: string,
   business: BusinessInput,
   regenerateSection?: string,
-): Promise<{ sections: string[]; source: "llm" | "template" }> {
+): Promise<{ sections: string[]; source: "llm" | "template" | "existing" }> {
+  // Idempotency: if a previous (possibly disconnected) run already persisted the
+  // full plan, never call the gateway again — just return what exists.
+  if (!regenerateSection) {
+    const existing = await persistedSectionKeys(supabase, businessId);
+    if (existing.length >= SECTION_KEYS.length) {
+      return { sections: existing, source: "existing" };
+    }
+  }
+
   let sections: PlanSection[];
   let source: "llm" | "template" = "llm";
+
 
   try {
     sections = await generatePlanWithLLM(business);
@@ -207,9 +229,12 @@ export async function buildAndStorePlan(
         }));
       });
     if (milestoneRows.length > 0) {
+      // Replace instead of append so a re-run can't duplicate rows.
+      await supabase.from("milestones").delete().eq("business_id", businessId);
       const { error } = await supabase.from("milestones").insert(milestoneRows);
       if (error) console.error("Milestone insert error:", error.message);
     }
+
 
     const taskRows = sections
       .filter((s) => s.key === "daily_tasks")
@@ -226,9 +251,11 @@ export async function buildAndStorePlan(
         }));
       });
     if (taskRows.length > 0) {
+      await supabase.from("tasks").delete().eq("business_id", businessId);
       const { error } = await supabase.from("tasks").insert(taskRows);
       if (error) console.error("Task insert error:", error.message);
     }
+
   }
 
   return { sections: sections.map((s) => s.key), source };
