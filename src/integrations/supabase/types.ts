@@ -14,6 +14,133 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_activity_log: {
+        Row: {
+          action: string
+          agent_id: string | null
+          business_id: string
+          created_at: string
+          id: string
+          metadata: Json
+          status: string
+          task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          agent_id?: string | null
+          business_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          status?: string
+          task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          agent_id?: string | null
+          business_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          status?: string
+          task_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_activity_log_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "business_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_activity_log_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_activity_log_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "agent_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_tasks: {
+        Row: {
+          agent_id: string
+          business_id: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          error_message: string | null
+          id: string
+          priority: string
+          requires_approval: boolean
+          result: Json
+          status: string
+          task_type: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agent_id: string
+          business_id: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          error_message?: string | null
+          id?: string
+          priority?: string
+          requires_approval?: boolean
+          result?: Json
+          status?: string
+          task_type?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string
+          business_id?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          error_message?: string | null
+          id?: string
+          priority?: string
+          requires_approval?: boolean
+          result?: Json
+          status?: string
+          task_type?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_tasks_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "business_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_tasks_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_agent_runs: {
         Row: {
           agent_type: string
@@ -96,6 +223,53 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      business_agents: {
+        Row: {
+          business_id: string
+          created_at: string
+          id: string
+          last_activity_at: string | null
+          last_error: string | null
+          name: string
+          objective: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          id?: string
+          last_activity_at?: string | null
+          last_error?: string | null
+          name?: string
+          objective?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          id?: string
+          last_activity_at?: string | null
+          last_error?: string | null
+          name?: string
+          objective?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_agents_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: true
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       business_plans: {
         Row: {
