@@ -66,7 +66,7 @@ function coerceSections(raw: unknown): PlanSection[] {
 }
 
 /** Accumulates the assistant message content from an SSE chat-completions stream. */
-async function readStreamedContent(response: Response): Promise<string> {
+export async function readStreamedContent(response: Response): Promise<string> {
   const body = response.body;
   if (!body) throw new Error("AI gateway returned an empty response body");
 

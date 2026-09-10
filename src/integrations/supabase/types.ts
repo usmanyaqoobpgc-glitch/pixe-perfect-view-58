@@ -75,15 +75,21 @@ export type Database = {
       agent_tasks: {
         Row: {
           agent_id: string
+          approval_reason: string | null
+          assigned_agent_type: string | null
           business_id: string
           completed_at: string | null
           created_at: string
           description: string | null
           error_message: string | null
+          execution_key: string | null
           id: string
+          parent_task_id: string | null
           priority: string
           requires_approval: boolean
           result: Json
+          retry_count: number
+          started_at: string | null
           status: string
           task_type: string
           title: string
@@ -92,15 +98,21 @@ export type Database = {
         }
         Insert: {
           agent_id: string
+          approval_reason?: string | null
+          assigned_agent_type?: string | null
           business_id: string
           completed_at?: string | null
           created_at?: string
           description?: string | null
           error_message?: string | null
+          execution_key?: string | null
           id?: string
+          parent_task_id?: string | null
           priority?: string
           requires_approval?: boolean
           result?: Json
+          retry_count?: number
+          started_at?: string | null
           status?: string
           task_type?: string
           title: string
@@ -109,15 +121,21 @@ export type Database = {
         }
         Update: {
           agent_id?: string
+          approval_reason?: string | null
+          assigned_agent_type?: string | null
           business_id?: string
           completed_at?: string | null
           created_at?: string
           description?: string | null
           error_message?: string | null
+          execution_key?: string | null
           id?: string
+          parent_task_id?: string | null
           priority?: string
           requires_approval?: boolean
           result?: Json
+          retry_count?: number
+          started_at?: string | null
           status?: string
           task_type?: string
           title?: string
@@ -137,6 +155,13 @@ export type Database = {
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "agent_tasks"
             referencedColumns: ["id"]
           },
         ]
