@@ -376,11 +376,9 @@ export function AgentsPage() {
       </div>
 
       {/* Execution status */}
-      {!dashboard ? (
-        <LoadingState label="Loading agent workspace..." />
-      ) : objectives.length === 0 ? (
-        <EmptyState icon Bot={undefined as never} title="" description="" />
-      ) : null}
+      {!dashboard && <LoadingState label="Loading agent workspace..." />}
+
+
 
       {dashboard && objectives.length === 0 && (
         <EmptyState
