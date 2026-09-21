@@ -6,9 +6,7 @@ import {
   type BusinessInput,
   type PlanSection,
 } from "./plan-template";
-
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-3.5-flash";
+import { chatJSON as callAiProvider } from "./ai-provider.server";
 
 const SYSTEM_PROMPT = `You are an expert business strategist AI. Generate a comprehensive business plan as JSON.
 Return an object with a single "sections" array. Each item must have exactly these fields:
@@ -65,86 +63,16 @@ function coerceSections(raw: unknown): PlanSection[] {
   return result;
 }
 
-/** Accumulates the assistant message content from an SSE chat-completions stream. */
-export async function readStreamedContent(response: Response): Promise<string> {
-  const body = response.body;
-  if (!body) throw new Error("AI gateway returned an empty response body");
-
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let content = "";
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    let index: number;
-    while ((index = buffer.indexOf("\n")) !== -1) {
-      const line = buffer.slice(0, index).trim();
-      buffer = buffer.slice(index + 1);
-      if (!line.startsWith("data:")) continue;
-      const data = line.slice(5).trim();
-      if (data === "[DONE]") continue;
-      try {
-        const chunk = JSON.parse(data) as {
-          choices?: { delta?: { content?: string }; message?: { content?: string } }[];
-        };
-        content +=
-          chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content ?? "";
-      } catch {
-        // ignore keep-alive / partial frames
-      }
-    }
-  }
-
-  return content;
-}
-
 /**
- * Calls the Lovable AI gateway. The API key never leaves the server: it is read
- * from the runtime secret LOVABLE_API_KEY inside this handler.
+ * Generates the business plan via the shared AI provider (Gemini preferred,
+ * Lovable gateway fallback). Keys are read from process.env inside that module
+ * and never leave the server.
  */
 export async function generatePlanWithLLM(business: BusinessInput): Promise<PlanSection[]> {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) throw new Error("LOVABLE_API_KEY is not configured");
-
-  const response = await fetch(GATEWAY_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildUserPrompt(business) },
-      ],
-      response_format: { type: "json_object" },
-      // Stream so bytes keep flowing during the long generation; a buffered
-      // request stays silent for minutes and gets severed by the platform,
-      // which surfaces in the browser as "Failed to fetch".
-      stream: true,
-    }),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(`AI gateway error ${response.status}: ${detail.slice(0, 300)}`);
-  }
-
-  const content = await readStreamedContent(response);
-  const cleaned = content.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "");
-
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    throw new Error("AI response was not valid JSON");
-  }
+  const { data: parsed } = await callAiProvider<unknown>([
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: buildUserPrompt(business) },
+  ]);
 
   const sections = coerceSections(parsed);
   if (sections.length === 0) throw new Error("AI response contained no valid sections");

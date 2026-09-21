@@ -15,6 +15,7 @@ import {
 import {
   Bot, Sparkles, Search, Users, Target, Megaphone, UserPlus, BarChart3, Zap, Shield, Lock,
   Play, Pause, RefreshCw, Check, X, ChevronDown, ChevronUp, AlertTriangle, Loader2, Activity,
+  PenTool, TrendingUp, Share2, Code, DollarSign, Briefcase, Headphones, Palette, Table, ClipboardList, GraduationCap,
 } from 'lucide-react';
 import type { Business } from '@/lib/types';
 
@@ -26,6 +27,17 @@ const AGENTS = [
   { type: 'sales', name: 'Sales Agent', icon: UserPlus, description: 'Helps qualify leads and generate customer communication templates.', permissions: ['Read: leads', 'Read: customers', 'Write: templates'] },
   { type: 'analytics', name: 'Analytics Agent', icon: BarChart3, description: 'Analyzes business metrics and recommends actions based on actual results.', permissions: ['Read: revenue records', 'Read: leads', 'Read: customers'] },
   { type: 'optimization', name: 'Optimization Agent', icon: Zap, description: 'Compares goals versus actual performance and suggests adjustments.', permissions: ['Read: milestones', 'Read: tasks', 'Read: revenue'] },
+  { type: 'content_writing', name: 'Content Writing Agent', icon: PenTool, description: 'Drafts blog posts, product copy, landing page copy and long-form content.', permissions: ['Read: business data', 'Write: content drafts'] },
+  { type: 'seo', name: 'SEO Agent', icon: TrendingUp, description: 'Produces keyword research, on-page SEO recommendations and technical SEO checklists.', permissions: ['Read: business data', 'Write: SEO recommendations'] },
+  { type: 'social_media', name: 'Social Media Agent', icon: Share2, description: 'Drafts social post ideas, captions, hashtags and content calendars.', permissions: ['Read: business data', 'Write: social content drafts'] },
+  { type: 'coding', name: 'Coding Agent', icon: Code, description: 'Produces technical specs, code snippets and implementation plans for apps and websites.', permissions: ['Read: business data', 'Write: technical plans'] },
+  { type: 'finance', name: 'Finance Agent', icon: DollarSign, description: 'Builds budgets, cash-flow projections, pricing math and financial summaries.', permissions: ['Read: revenue records', 'Write: financial plans'] },
+  { type: 'hr_recruitment', name: 'HR & Recruitment Agent', icon: Briefcase, description: 'Drafts job descriptions, interview questions and hiring/onboarding plans.', permissions: ['Read: business data', 'Write: HR drafts'] },
+  { type: 'customer_support', name: 'Customer Support Agent', icon: Headphones, description: 'Drafts support reply templates, FAQ content and escalation guidelines.', permissions: ['Read: leads', 'Read: customers', 'Write: support templates'] },
+  { type: 'design', name: 'Design Agent', icon: Palette, description: 'Produces design briefs and creative direction for pages, brand and UI.', permissions: ['Read: business data', 'Write: design briefs'] },
+  { type: 'data_excel', name: 'Data & Excel Agent', icon: Table, description: 'Designs spreadsheet structures, formulas and reporting layouts from your real numbers.', permissions: ['Read: revenue records', 'Write: data models'] },
+  { type: 'project_management', name: 'Project Management Agent', icon: ClipboardList, description: 'Breaks objectives into milestones, task breakdowns and sequencing.', permissions: ['Read: milestones', 'Read: tasks', 'Write: project plans'] },
+  { type: 'education', name: 'Education & Learning Agent', icon: GraduationCap, description: 'Designs curricula, course outlines, lesson plans and assessments.', permissions: ['Read: business data', 'Write: learning plans'] },
 ] as const;
 
 const AGENT_NAMES: Record<string, string> = {
