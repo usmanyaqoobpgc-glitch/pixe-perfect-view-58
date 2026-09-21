@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
 
-import { readStreamedContent } from "./ai-planner.server";
+import { chatJSON as callAiProvider, isAiConfigured, activeProviderName, type ChatMessage, type AiProviderName } from "./ai-provider.server";
 
 /**
  * Server-only AI Business Agent core (orchestrator + specialist execution).
@@ -9,12 +9,12 @@ import { readStreamedContent } from "./ai-planner.server";
  * All calls receive the request-scoped Supabase client from `requireSupabaseAuth`,
  * so every read/write is executed as the signed-in user and constrained by RLS.
  * The agent never uses the service-role client and never touches auth, roles or MFA.
+ *
+ * AI calls go through ./ai-provider.server, which prefers GEMINI_API_KEY and
+ * falls back to the Lovable AI gateway (LOVABLE_API_KEY) if Gemini isn't configured.
  */
 
 type DB = SupabaseClient<any, any, any>;
-
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-3.8-flash";
 
 export const AGENT_CAPABILITIES = [
   "read_business_profile",
@@ -37,7 +37,7 @@ const EXTERNAL_ACTION_PATTERN =
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
 // ---------------------------------------------------------------------------
-// Specialist agent registry (the existing 7 agents shown in the UI)
+// Specialist agent registry (18 specialists shown in the UI)
 // ---------------------------------------------------------------------------
 
 export type SpecialistType =
@@ -47,7 +47,18 @@ export type SpecialistType =
   | "marketing"
   | "sales"
   | "analytics"
-  | "optimization";
+  | "optimization"
+  | "content_writing"
+  | "seo"
+  | "social_media"
+  | "coding"
+  | "finance"
+  | "hr_recruitment"
+  | "customer_support"
+  | "design"
+  | "data_excel"
+  | "project_management"
+  | "education";
 
 interface Specialist {
   name: string;
@@ -91,6 +102,61 @@ export const SPECIALISTS: Record<SpecialistType, Specialist> = {
     role: "You compare goals versus actual progress (milestones, tasks, revenue) and suggest concrete adjustments to get back on track.",
     planSections: ["milestones", "roadmap", "revenue_targets"],
   },
+  content_writing: {
+    name: "Content Writing Agent",
+    role: "You write clear, on-brand written content — blog posts, product copy, landing page copy, scripts and long-form drafts. You never claim to have published anything; you only produce drafts for the founder to review.",
+    planSections: ["social_content", "landing_page", "brand_names"],
+  },
+  seo: {
+    name: "SEO Agent",
+    role: "You produce keyword research, on-page SEO recommendations, content structure, meta descriptions and technical SEO checklists. You never claim to have made live changes to a website.",
+    planSections: ["landing_page", "market_positioning", "kpis"],
+  },
+  social_media: {
+    name: "Social Media Agent",
+    role: "You draft social media post ideas, captions, hashtag sets and content calendars for platforms like Instagram, TikTok, YouTube, Facebook and X. You never claim to have posted, scheduled or published anything — you only produce drafts.",
+    planSections: ["social_content", "marketing_strategy", "target_audience"],
+  },
+  coding: {
+    name: "Coding Agent",
+    role: "You produce technical specifications, code snippets, architecture notes and step-by-step implementation plans for software, websites and apps. You never execute code, access servers, or deploy anything — you only produce drafts and plans for a developer or the founder to run.",
+    planSections: ["roadmap"],
+  },
+  finance: {
+    name: "Finance Agent",
+    role: "You produce budgets, cash-flow projections, pricing math, unit economics and financial summaries based on the numbers provided. You are explicit about assumptions and never claim to move money, place trades or make payments — you only advise and calculate.",
+    planSections: ["pricing_strategy", "revenue_targets", "kpis"],
+  },
+  hr_recruitment: {
+    name: "HR & Recruitment Agent",
+    role: "You draft job descriptions, interview questions, hiring plans, onboarding checklists and basic HR policy outlines. You never claim to have contacted candidates or made an offer.",
+    planSections: ["roadmap"],
+  },
+  customer_support: {
+    name: "Customer Support Agent",
+    role: "You draft support reply templates, FAQ content, escalation guidelines and customer communication scripts. You never claim to have sent a message to a real customer.",
+    planSections: ["customer_templates", "target_audience"],
+  },
+  design: {
+    name: "Design Agent",
+    role: "You produce design briefs, layout descriptions, color/typography direction, and structured design specifications for landing pages, brand identity and UI screens. You never generate or claim to have produced final image/video files — you produce written creative direction.",
+    planSections: ["landing_page", "brand_names"],
+  },
+  data_excel: {
+    name: "Data & Excel Agent",
+    role: "You design spreadsheet structures, formulas, reporting layouts and data models based on the business's real numbers (revenue, leads, customers). You never claim to have created or modified an actual file — you describe exactly what to build.",
+    planSections: ["kpis", "revenue_targets"],
+  },
+  project_management: {
+    name: "Project Management Agent",
+    role: "You break objectives into concrete project plans: milestones, task breakdowns, sequencing, dependencies and owners. You never claim to have assigned real people or sent real notifications.",
+    planSections: ["roadmap", "milestones", "daily_tasks"],
+  },
+  education: {
+    name: "Education & Learning Agent",
+    role: "You design curricula, course outlines, lesson plans, learning objectives and assessment ideas — useful for training programs, onboarding, or education-focused businesses (schools, colleges, universities, course creators). You never claim to have enrolled or graded a real student.",
+    planSections: ["roadmap"],
+  },
 };
 
 const SPECIALIST_TYPES = Object.keys(SPECIALISTS) as SpecialistType[];
@@ -118,6 +184,8 @@ function sanitizeMetadata(meta: Record<string, unknown>): Record<string, unknown
 function userSafeError(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
   if (/status 402|AI credits/i.test(message)) return "AI credits are exhausted. Add credits to your workspace and retry.";
+  if (/status 429.*quota|RESOURCE_EXHAUSTED/i.test(message)) return "The Gemini free-tier quota was hit. Wait a bit and retry, or check your Google AI Studio quota.";
+  if (/API_KEY_INVALID|status 400.*key|status 401/i.test(message)) return "The configured AI API key was rejected. Check the key and retry.";
   if (/status 429|rate limit/i.test(message)) return "The AI service is rate-limited right now. Please retry in a moment.";
   if (/status 403/i.test(message)) return "AI access is blocked by workspace policy.";
   if (/status 5\d\d/i.test(message)) return "The AI service had a temporary problem. Please retry.";
@@ -279,7 +347,7 @@ export async function getDashboard(supabase: DB, userId: string, businessId: str
     activity: activity ?? [],
     counts,
     specialistRuns,
-    aiConfigured: Boolean(process.env["LOVABLE_API_KEY"]),
+    aiConfigured: isAiConfigured(),
   };
 }
 
@@ -383,7 +451,6 @@ export async function cancelTask(supabase: DB, userId: string, taskId: string) {
     .single();
   if (error || !data) throw new Error("Unable to cancel the task.");
 
-  // Cancelling an objective also cancels its queued steps.
   if (task.task_type === "objective") {
     await supabase
       .from("agent_tasks")
@@ -441,7 +508,7 @@ async function loadPlanSections(supabase: DB, businessId: string, keys: string[]
 /** Extra, scoped data for specialists that need operational numbers. */
 async function loadOperationalContext(supabase: DB, businessId: string, type: SpecialistType): Promise<string> {
   const parts: string[] = [];
-  if (type === "sales" || type === "analytics") {
+  if (type === "sales" || type === "analytics" || type === "customer_support") {
     const [{ data: leads }, { data: customers }] = await Promise.all([
       supabase.from("leads").select("name, status, source, estimated_value").eq("business_id", businessId).limit(15),
       supabase.from("customers").select("name, status, lifetime_value").eq("business_id", businessId).limit(15),
@@ -449,7 +516,7 @@ async function loadOperationalContext(supabase: DB, businessId: string, type: Sp
     parts.push(`Leads (${leads?.length ?? 0}): ${JSON.stringify(leads ?? []).slice(0, 1200)}`);
     parts.push(`Customers (${customers?.length ?? 0}): ${JSON.stringify(customers ?? []).slice(0, 1200)}`);
   }
-  if (type === "analytics" || type === "optimization") {
+  if (type === "analytics" || type === "optimization" || type === "finance" || type === "data_excel") {
     const { data: revenue } = await supabase
       .from("revenue_records")
       .select("type, amount, record_date, is_estimate")
@@ -458,7 +525,7 @@ async function loadOperationalContext(supabase: DB, businessId: string, type: Sp
       .limit(30);
     parts.push(`Revenue records: ${JSON.stringify(revenue ?? []).slice(0, 1200)}`);
   }
-  if (type === "optimization") {
+  if (type === "optimization" || type === "project_management") {
     const [{ data: milestones }, { data: tasks }] = await Promise.all([
       supabase.from("milestones").select("title, status, target_day, due_date").eq("business_id", businessId).limit(20),
       supabase.from("tasks").select("title, status, priority, due_date").eq("business_id", businessId).limit(20),
@@ -466,7 +533,7 @@ async function loadOperationalContext(supabase: DB, businessId: string, type: Sp
     parts.push(`Milestones: ${JSON.stringify(milestones ?? []).slice(0, 1200)}`);
     parts.push(`Tasks: ${JSON.stringify(tasks ?? []).slice(0, 1200)}`);
   }
-  if (type === "marketing") {
+  if (type === "marketing" || type === "social_media" || type === "content_writing" || type === "seo") {
     const { data: content } = await supabase
       .from("marketing_content")
       .select("channel, content_type, title, status")
@@ -475,51 +542,6 @@ async function loadOperationalContext(supabase: DB, businessId: string, type: Sp
     parts.push(`Existing marketing content: ${JSON.stringify(content ?? []).slice(0, 800)}`);
   }
   return parts.join("\n");
-}
-
-// ---------------------------------------------------------------------------
-// AI provider abstraction
-// ---------------------------------------------------------------------------
-
-type ChatMessage = { role: "system" | "user"; content: string };
-
-/**
- * Calls the Lovable AI gateway with the server-side key and returns parsed JSON.
- * The key is read inside the call and never leaves the server.
- */
-async function chatJSON<T>(messages: ChatMessage[]): Promise<T> {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) throw new Error("AI provider is not configured");
-
-  const response = await fetch(GATEWAY_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: MODEL,
-      messages,
-      response_format: { type: "json_object" },
-      stream: true,
-    }),
-  });
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    console.error(`[agent] AI gateway status ${response.status}: ${detail.slice(0, 300)}`);
-    throw new Error(`AI gateway returned status ${response.status}`);
-  }
-
-  const content = await readStreamedContent(response);
-  const cleaned = content.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "");
-  const match = cleaned.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("The AI returned an unreadable response.");
-  try {
-    return JSON.parse(match[0]) as T;
-  } catch {
-    throw new Error("The AI returned invalid JSON.");
-  }
-}
-
-function aiConfigured(): boolean {
-  return Boolean(process.env["LOVABLE_API_KEY"]);
 }
 
 // ---------------------------------------------------------------------------
@@ -564,7 +586,7 @@ function coercePlan(raw: unknown): ObjectivePlan {
         ? String(o["approval_reason"] ?? "This step implies an external or irreversible action.").slice(0, 300)
         : null,
     });
-    if (steps.length >= 5) break;
+    if (steps.length >= 8) break;
   }
   return {
     analysis: String(r["analysis"] ?? "").slice(0, 1500),
@@ -581,19 +603,31 @@ function fallbackPlan(objective: string): ObjectivePlan {
 
   if (/market|customer|audience|demand/.test(lower)) push("market_research", "Research the target market", objective);
   if (/competit/.test(lower)) push("competitor", "Analyze competitors", objective);
-  if (/market(ing)?|campaign|brand|content|b2b|b2c|launch/.test(lower)) push("marketing", "Draft the marketing plan", objective);
+  if (/market(ing)?|campaign|brand|launch/.test(lower)) push("marketing", "Draft the marketing plan", objective);
   if (/sales|lead|outreach|pipeline/.test(lower)) push("sales", "Design the sales approach", objective);
-  if (/revenue|metric|analytic|profit|kpi/.test(lower)) push("analytics", "Analyze current metrics", objective);
+  if (/revenue|metric|analytic|profit|\bkpi/.test(lower)) push("analytics", "Analyze current metrics", objective);
+  if (/blog|article|copy|write|content(?! calendar)/.test(lower)) push("content_writing", "Draft the requested content", objective);
+  if (/seo|keyword|search ranking|google ranking/.test(lower)) push("seo", "Produce SEO recommendations", objective);
+  if (/social media|instagram|tiktok|facebook|youtube|twitter|\bx\.com\b|post(s)?\b/.test(lower)) push("social_media", "Draft the social media content", objective);
+  if (/code|app|website|software|api|database|build (a|an|my) (app|website|site)/.test(lower)) push("coding", "Produce a technical implementation plan", objective);
+  if (/budget|cash flow|financ|pricing|unit economics|forecast/.test(lower)) push("finance", "Produce the financial breakdown", objective);
+  if (/hire|hiring|recruit|job description|onboard(ing)? (a|new) (employee|hire)/.test(lower)) push("hr_recruitment", "Draft the hiring plan", objective);
+  if (/support ticket|customer (service|support)|faq|complaint/.test(lower)) push("customer_support", "Draft support content", objective);
+  if (/design|logo|color palette|layout|ui\b|ux\b|brand identity/.test(lower)) push("design", "Produce the design brief", objective);
+  if (/spreadsheet|excel|data model|dashboard|report(ing)?/.test(lower)) push("data_excel", "Design the data/reporting structure", objective);
+  if (/project plan|milestone|task breakdown|roadmap|sprint/.test(lower)) push("project_management", "Build the project plan", objective);
+  if (/course|curriculum|lesson|training program|school|college|university|student/.test(lower)) push("education", "Design the learning plan", objective);
   if (steps.length === 0) push("business_strategy", "Build a strategy for this objective", objective);
   return {
     analysis: "AI planning was unavailable, so the Business Agent used a rule-based routing fallback.",
-    plan_summary: `Route "${objective}" to ${steps.map((s) => SPECIALISTS[s.agent_type].name).join(", ")}.`,
-    steps,
+    plan_summary: `Route "${objective}" to ${steps.slice(0, 8).map((s) => SPECIALISTS[s.agent_type].name).join(", ")}.`,
+    steps: steps.slice(0, 8),
   };
 }
 
 async function analyzeObjective(business: BusinessRow, planKeys: string, objective: string, recentTasks: string) {
   if (!aiConfigured()) return { plan: fallbackPlan(objective), provider: "mock" as const };
+  const providerUsed = activeProviderName();
   const specialistList = SPECIALIST_TYPES.map((t) => `- ${t}: ${SPECIALISTS[t].role}`).join("\n");
   const raw = await chatJSON<unknown>([
     {
@@ -603,7 +637,7 @@ Available specialist agents (agent_type → role):
 ${specialistList}
 
 Rules:
-- Produce 2 to 4 steps, ordered so that research/analysis comes before strategy and content.
+- Produce 2 to 8 steps, ordered so that research/analysis comes before strategy and content. Use only as many steps as the objective genuinely needs — do not pad.
 - Each step must be a concrete deliverable a specialist can produce as a written document. Specialists only advise and draft; they never send, publish, buy or delete anything.
 - Set requires_approval=true only when a step implies an external or irreversible action (sending emails, publishing, spending money) and explain why in approval_reason.
 - Respond with strict JSON: {"analysis": string, "plan_summary": string, "steps": [{"agent_type": string, "title": string, "description": string, "priority": "low"|"medium"|"high"|"urgent", "requires_approval": boolean, "approval_reason": string|null}]}`,
@@ -614,8 +648,18 @@ Rules:
     },
   ]);
   const plan = coercePlan(raw);
-  if (plan.steps.length === 0) return { plan: fallbackPlan(objective), provider: "lovable_ai" as const };
-  return { plan, provider: "lovable_ai" as const };
+  if (plan.steps.length === 0) return { plan: fallbackPlan(objective), provider: providerUsed };
+  return { plan, provider: providerUsed };
+}
+
+function aiConfigured(): boolean {
+  return isAiConfigured();
+}
+
+/** Calls the configured AI provider (Gemini preferred, Lovable gateway fallback) and returns parsed JSON. */
+async function chatJSON<T>(messages: ChatMessage[]): Promise<T> {
+  const { data } = await callAiProvider<T>(messages);
+  return data;
 }
 
 export async function planObjective(supabase: DB, userId: string, businessId: string, objectiveInput: string) {
@@ -625,7 +669,6 @@ export async function planObjective(supabase: DB, userId: string, businessId: st
   const { agent, business } = await getOrCreateAgent(supabase, userId, businessId);
   if (agent.status !== "active") throw new Error("The agent is paused. Resume it to run objectives.");
 
-  // Duplicate-execution protection: an identical objective that is still in flight is reused.
   const { data: inFlight } = await supabase
     .from("agent_tasks")
     .select("*")
@@ -785,7 +828,7 @@ interface SpecialistResult {
   deliverable: string;
   key_points: string[];
   next_actions: string[];
-  provider: "lovable_ai" | "mock";
+  provider: AiProviderName;
   agent_type: SpecialistType;
   run_id: string | null;
 }
@@ -816,7 +859,7 @@ async function runSpecialist(
       next_actions: ["Configure the server-side AI provider to get real results."],
     };
   } else {
-    provider = "lovable_ai";
+    provider = activeProviderName();
     const raw = await chatJSON<Record<string, unknown>>([
       {
         role: "system",
@@ -846,7 +889,6 @@ Respond with strict JSON: {"summary": string (max 400 chars), "deliverable": str
     };
   }
 
-  // Persist the artifact in the existing specialist run table so specialist pages see it.
   const { data: run } = await supabase
     .from("ai_agent_runs")
     .insert({
@@ -943,7 +985,6 @@ export async function runTask(supabase: DB, userId: string, taskId: string) {
   if (!agent) throw new Error("Agent not found.");
   if (agent.status !== "active") throw new Error("The agent is paused. Resume it to run tasks.");
 
-  // Atomic claim: only one caller can move pending/failed → running.
   const { data: claimed } = await supabase
     .from("agent_tasks")
     .update({
