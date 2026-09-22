@@ -119,7 +119,7 @@ export const SPECIALISTS: Record<SpecialistType, Specialist> = {
   },
   coding: {
     name: "Coding Agent",
-    role: "You produce technical specifications, code snippets, architecture notes and step-by-step implementation plans for software, websites and apps. You never execute code, access servers, or deploy anything — you only produce drafts and plans for a developer or the founder to run.",
+    role: "You produce technical specifications, code snippets, architecture notes and step-by-step implementation plans for software and apps. For website or landing page requests specifically, you produce a real, previewable single-file HTML page. You never execute code, access servers, or deploy anything — the founder reviews and deploys what you produce.",
     planSections: ["roadmap"],
   },
   finance: {
@@ -831,7 +831,12 @@ interface SpecialistResult {
   provider: AiProviderName;
   agent_type: SpecialistType;
   run_id: string | null;
+  /** Present only for coding-agent tasks that produce a real, previewable single-file website. */
+  generated_html: string | null;
 }
+
+/** Matches coding-agent tasks that should produce an actual HTML file, not just a written plan. */
+const WEBSITE_BUILD_PATTERN = /\b(website|landing page|web page|webpage|home page|homepage|site)\b/i;
 
 async function runSpecialist(
   supabase: DB,
@@ -847,6 +852,8 @@ async function runSpecialist(
     loadOperationalContext(supabase, business.id, type),
   ]);
 
+  const isWebsiteBuild = type === "coding" && WEBSITE_BUILD_PATTERN.test(`${task.title} ${task.description ?? ""}`);
+
   let output: Omit<SpecialistResult, "provider" | "agent_type" | "run_id">;
   let provider: SpecialistResult["provider"];
 
@@ -857,6 +864,41 @@ async function runSpecialist(
       deliverable: `# ${task.title}\n\n1. Clarify the desired outcome for ${business.name}.\n2. Gather the relevant data from the existing business plan.\n3. Draft the deliverable and review it before acting.`,
       key_points: ["AI provider not configured", "Outline only"],
       next_actions: ["Configure the server-side AI provider to get real results."],
+      generated_html: null,
+    };
+  } else if (isWebsiteBuild) {
+    provider = activeProviderName();
+    const raw = await chatJSON<Record<string, unknown>>([
+      {
+        role: "system",
+        content: `You are the Website Builder, a specialist that turns a business objective into a real, single-file HTML landing page.
+Produce a complete, self-contained HTML document: all CSS inline in a <style> tag in <head>, no external stylesheets, no external JS frameworks, no placeholder images (use CSS gradients/shapes or simple inline SVG instead of <img> tags pointing at fake URLs). Write real, specific copy for this business — no lorem ipsum, no "[Your headline here]" placeholders. Make it responsive (mobile-first, flexbox/grid, meta viewport tag) and visually polished (clear hierarchy, a real color palette, readable typography from common web-safe or Google Fonts loaded via a <link> tag).
+Include: a hero section with a real headline and call-to-action, a short "what we offer" section, a simple pricing or offer section if relevant, and a footer.
+Respond with strict JSON: {"summary": string (max 400 chars, describing what page was built), "html": string (the full HTML document starting with <!DOCTYPE html>), "key_points": string[] (3-6 items describing what's on the page), "next_actions": string[] (2-5 items, e.g. "Connect a domain", "Add real product photos", "Wire up the contact form to an email service")}`,
+      },
+      {
+        role: "user",
+        content: [
+          describeBusiness(business),
+          objectiveTitle ? `\nOverall objective: ${objectiveTitle}` : "",
+          `\nYour assigned task: ${task.title}`,
+          task.description ? `Task details: ${task.description}` : "",
+          planContext ? `\nRelevant business plan context:\n${planContext}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      },
+    ]);
+    const html = String(raw["html"] ?? "").trim();
+    const validHtml = /^<!doctype html>/i.test(html) || /^<html/i.test(html);
+    output = {
+      summary: String(raw["summary"] ?? "").slice(0, 1000) || "No summary returned.",
+      deliverable: validHtml
+        ? "A single-file HTML landing page was generated. Use Preview to view it or Download to save the file."
+        : "The AI did not return valid HTML. Try running this task again.",
+      key_points: Array.isArray(raw["key_points"]) ? raw["key_points"].slice(0, 8).map((s) => String(s).slice(0, 300)) : [],
+      next_actions: Array.isArray(raw["next_actions"]) ? raw["next_actions"].slice(0, 6).map((s) => String(s).slice(0, 300)) : [],
+      generated_html: validHtml ? html.slice(0, 100_000) : null,
     };
   } else {
     provider = activeProviderName();
@@ -886,6 +928,7 @@ Respond with strict JSON: {"summary": string (max 400 chars), "deliverable": str
       deliverable: String(raw["deliverable"] ?? "").slice(0, 12000),
       key_points: Array.isArray(raw["key_points"]) ? raw["key_points"].slice(0, 8).map((s) => String(s).slice(0, 300)) : [],
       next_actions: Array.isArray(raw["next_actions"]) ? raw["next_actions"].slice(0, 6).map((s) => String(s).slice(0, 300)) : [],
+      generated_html: null,
     };
   }
 

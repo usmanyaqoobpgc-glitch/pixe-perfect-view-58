@@ -16,6 +16,7 @@ import {
   Bot, Sparkles, Search, Users, Target, Megaphone, UserPlus, BarChart3, Zap, Shield, Lock,
   Play, Pause, RefreshCw, Check, X, ChevronDown, ChevronUp, AlertTriangle, Loader2, Activity,
   PenTool, TrendingUp, Share2, Code, DollarSign, Briefcase, Headphones, Palette, Table, ClipboardList, GraduationCap,
+  ExternalLink, Download,
 } from 'lucide-react';
 import type { Business } from '@/lib/types';
 import { PENDING_OBJECTIVE_KEY } from '@/components/CommandBar';
@@ -126,7 +127,27 @@ function ResultPanel({ task }: { task: AgentTask }) {
   const deliverable = typeof result['deliverable'] === 'string' ? result['deliverable'] : '';
   const keyPoints = Array.isArray(result['key_points']) ? (result['key_points'] as unknown[]).map(String) : [];
   const nextActions = Array.isArray(result['next_actions']) ? (result['next_actions'] as unknown[]).map(String) : [];
+  const generatedHtml = typeof result['generated_html'] === 'string' ? result['generated_html'] : '';
   if (!summary && !deliverable) return null;
+
+  function openPreview() {
+    const blob = new Blob([generatedHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+
+  function downloadHtml() {
+    const blob = new Blob([generatedHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${task.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60) || 'website'}.html`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">
@@ -138,6 +159,18 @@ function ResultPanel({ task }: { task: AgentTask }) {
       {open && (
         <div className="mt-2 space-y-3">
           {summary && <p className="text-sm text-slate-600 dark:text-slate-300">{summary}</p>}
+          {generatedHtml && (
+            <div className="flex items-center gap-2">
+              <button onClick={openPreview} className="btn-primary text-xs px-3 py-1.5">
+                <ExternalLink className="w-3.5 h-3.5" />
+                Preview website
+              </button>
+              <button onClick={downloadHtml} className="btn-secondary text-xs px-3 py-1.5">
+                <Download className="w-3.5 h-3.5" />
+                Download HTML
+              </button>
+            </div>
+          )}
           {keyPoints.length > 0 && (
             <ul className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
               {keyPoints.map((p, i) => <li key={i}>• {p}</li>)}
