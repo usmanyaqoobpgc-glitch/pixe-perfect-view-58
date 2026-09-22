@@ -18,6 +18,7 @@ import {
   PenTool, TrendingUp, Share2, Code, DollarSign, Briefcase, Headphones, Palette, Table, ClipboardList, GraduationCap,
 } from 'lucide-react';
 import type { Business } from '@/lib/types';
+import { PENDING_OBJECTIVE_KEY } from '@/components/CommandBar';
 
 const AGENTS = [
   { type: 'market_research', name: 'Market Research Agent', icon: Search, description: 'Researches and summarizes market opportunities for your business idea.', permissions: ['Read: business data', 'Read: market context'] },
@@ -179,6 +180,7 @@ export function AgentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
   const executingRef = useRef(false);
+  const pendingObjectiveRef = useRef(false);
 
   useEffect(() => {
     async function load() {
@@ -190,7 +192,34 @@ export function AgentsPage() {
         .order('created_at', { ascending: false });
       const list = (data as Business[]) ?? [];
       setBusinesses(list);
-      if (list.length > 0 && list[0]) setBusinessId(list[0].id);
+
+      // Pick up an objective handed off from the dashboard's Command Bar, if any.
+      let pendingId: string | null = null;
+      let pendingObjective: string | null = null;
+      try {
+        const raw = sessionStorage.getItem(PENDING_OBJECTIVE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as { businessId?: string; objective?: string; ts?: number };
+          // Ignore stale entries (older than 2 minutes) so a forgotten tab doesn't re-run later.
+          if (parsed.objective && parsed.businessId && parsed.ts && Date.now() - parsed.ts < 120_000) {
+            if (list.some((b) => b.id === parsed.businessId)) {
+              pendingId = parsed.businessId;
+              pendingObjective = parsed.objective;
+            }
+          }
+          sessionStorage.removeItem(PENDING_OBJECTIVE_KEY);
+        }
+      } catch {
+        // sessionStorage may be unavailable — just fall back to normal behavior.
+      }
+
+      if (pendingId && pendingObjective) {
+        setBusinessId(pendingId);
+        setObjective(pendingObjective);
+        pendingObjectiveRef.current = true;
+      } else if (list.length > 0 && list[0]) {
+        setBusinessId(list[0].id);
+      }
       setLoading(false);
     }
     load();
@@ -269,6 +298,16 @@ export function AgentsPage() {
       setStarting(false);
     }
   }
+
+  // Auto-run an objective handed off from the dashboard's Command Bar, once the
+  // matching business is selected and its dashboard has loaded.
+  useEffect(() => {
+    if (!pendingObjectiveRef.current) return;
+    if (!businessId || !dashboard || starting) return;
+    pendingObjectiveRef.current = false;
+    handleRunObjective();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId, dashboard]);
 
   async function withTask(taskId: string, fn: () => Promise<unknown>) {
     setBusyTaskId(taskId);

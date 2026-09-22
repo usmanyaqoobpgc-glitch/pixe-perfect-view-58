@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { StatCard, EmptyState, LoadingState, PageHeader } from '@/components/ui';
+import { CommandBar } from '@/components/CommandBar';
 import { Link } from '@tanstack/react-router';
 import {
   DollarSign, Target, TrendingUp, CheckSquare, UserPlus, Users2, BarChart3,
@@ -94,6 +95,8 @@ export function OverviewPage() {
   return (
     <div>
       <PageHeader title="Overview" description="Your business command center" />
+
+      <CommandBar businesses={businesses} />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="Current Revenue" value={formatCurrency(totalRevenue)} icon={DollarSign} color="accent" />
