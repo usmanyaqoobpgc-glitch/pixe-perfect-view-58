@@ -128,6 +128,12 @@ function ResultPanel({ task }: { task: AgentTask }) {
   const keyPoints = Array.isArray(result['key_points']) ? (result['key_points'] as unknown[]).map(String) : [];
   const nextActions = Array.isArray(result['next_actions']) ? (result['next_actions'] as unknown[]).map(String) : [];
   const generatedHtml = typeof result['generated_html'] === 'string' ? result['generated_html'] : '';
+  const calendarPosts = Array.isArray(result['calendar_posts'])
+    ? (result['calendar_posts'] as unknown[]).filter(
+        (p): p is { id: string; channel: string; title: string; body: string; hashtags: string[]; scheduled_date: string | null } =>
+          typeof p === 'object' && p !== null,
+      )
+    : [];
   if (!summary && !deliverable) return null;
 
   function openPreview() {
@@ -169,6 +175,34 @@ function ResultPanel({ task }: { task: AgentTask }) {
                 <Download className="w-3.5 h-3.5" />
                 Download HTML
               </button>
+            </div>
+          )}
+          {calendarPosts.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-2">
+                {calendarPosts.length} posts saved to your content calendar
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[...calendarPosts]
+                  .sort((a, b) => (a.scheduled_date ?? '').localeCompare(b.scheduled_date ?? ''))
+                  .map((p) => (
+                    <div key={p.id} className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 bg-white dark:bg-slate-900">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="badge bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 capitalize">
+                          {p.channel}
+                        </span>
+                        <span className="text-[11px] text-slate-400">{p.scheduled_date}</span>
+                      </div>
+                      <p className="text-xs font-medium text-slate-900 dark:text-white mb-1">{p.title}</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-3">{p.body}</p>
+                      {p.hashtags?.length > 0 && (
+                        <p className="text-[11px] text-primary-500 mt-1.5 line-clamp-1">
+                          {p.hashtags.map((h) => `#${h}`).join(' ')}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+              </div>
             </div>
           )}
           {keyPoints.length > 0 && (

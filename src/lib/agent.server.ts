@@ -833,10 +833,15 @@ interface SpecialistResult {
   run_id: string | null;
   /** Present only for coding-agent tasks that produce a real, previewable single-file website. */
   generated_html: string | null;
+  /** Present only for social-media tasks that produce a real content calendar saved to marketing_content. */
+  calendar_posts: { id: string; channel: string; title: string; body: string; hashtags: string[]; scheduled_date: string | null }[] | null;
 }
 
 /** Matches coding-agent tasks that should produce an actual HTML file, not just a written plan. */
 const WEBSITE_BUILD_PATTERN = /\b(website|landing page|web page|webpage|home page|homepage|site)\b/i;
+
+/** Matches social-media tasks that should produce a real, saved content calendar instead of a written plan. */
+const CONTENT_CALENDAR_PATTERN = /\b(content calendar|posting schedule|post schedule|content schedule|social media (plan|calendar|posts))\b/i;
 
 async function runSpecialist(
   supabase: DB,
@@ -853,6 +858,7 @@ async function runSpecialist(
   ]);
 
   const isWebsiteBuild = type === "coding" && WEBSITE_BUILD_PATTERN.test(`${task.title} ${task.description ?? ""}`);
+  const isContentCalendar = type === "social_media" && CONTENT_CALENDAR_PATTERN.test(`${task.title} ${task.description ?? ""}`);
 
   let output: Omit<SpecialistResult, "provider" | "agent_type" | "run_id">;
   let provider: SpecialistResult["provider"];
@@ -860,11 +866,13 @@ async function runSpecialist(
   if (!aiConfigured()) {
     provider = "mock";
     output = {
+
       summary: `Placeholder result from the ${spec.name}. No AI provider is configured, so a structured outline was produced instead of a generated deliverable.`,
       deliverable: `# ${task.title}\n\n1. Clarify the desired outcome for ${business.name}.\n2. Gather the relevant data from the existing business plan.\n3. Draft the deliverable and review it before acting.`,
       key_points: ["AI provider not configured", "Outline only"],
       next_actions: ["Configure the server-side AI provider to get real results."],
       generated_html: null,
+      calendar_posts: null,
     };
   } else if (isWebsiteBuild) {
     provider = activeProviderName();
@@ -917,6 +925,85 @@ Respond with strict JSON: {"summary": string (max 400 chars, describing what pag
       key_points: Array.isArray(raw["key_points"]) ? raw["key_points"].slice(0, 8).map((s) => String(s).slice(0, 300)) : [],
       next_actions: Array.isArray(raw["next_actions"]) ? raw["next_actions"].slice(0, 6).map((s) => String(s).slice(0, 300)) : [],
       generated_html: validHtml ? html.slice(0, 100_000) : null,
+      calendar_posts: null,
+    };
+  } else if (isContentCalendar) {
+    provider = activeProviderName();
+    const raw = await chatJSON<Record<string, unknown>>([
+      {
+        role: "system",
+        content: `You are the Social Media Agent, producing a real, ready-to-use content calendar — not just a written strategy.
+Generate 5 to 14 concrete social media posts spread across the requested period (infer the period from the task; default to 7 days / 1 week if unclear), spread across platforms that make sense for this business (Instagram, TikTok, Facebook, YouTube, X — pick what fits).
+Each post must be specific and usable as-is: a real caption (not a placeholder), a short internal title, a channel, a set of 3-8 relevant hashtags (no # symbol, just the words), and a suggested date offset in days from today (0 = today, 1 = tomorrow, etc.).
+Respond with strict JSON: {"summary": string (max 400 chars), "key_points": string[] (3-6 items describing the calendar's theme/strategy), "next_actions": string[] (2-5 items), "posts": [{"channel": string (one of instagram, tiktok, facebook, youtube, x), "title": string (short internal label, max 80 chars), "body": string (the actual caption text), "hashtags": string[] (3-8 words, no # symbol), "day_offset": number (0-30)}]}`,
+      },
+      {
+        role: "user",
+        content: [
+          describeBusiness(business),
+          objectiveTitle ? `\nOverall objective: ${objectiveTitle}` : "",
+          `\nYour assigned task: ${task.title}`,
+          task.description ? `Task details: ${task.description}` : "",
+          planContext ? `\nRelevant business plan context:\n${planContext}` : "",
+          opsContext ? `\nExisting marketing content already on file:\n${opsContext}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      },
+    ]);
+    const rawPosts = Array.isArray(raw["posts"]) ? raw["posts"] : [];
+    const validChannels = new Set(["instagram", "tiktok", "facebook", "youtube", "x"]);
+    const today = new Date();
+    const postsToInsert: { channel: string; content_type: string; title: string; body: string; hashtags: string[]; scheduled_date: string }[] = [];
+    for (const p of rawPosts.slice(0, 14)) {
+      if (typeof p !== "object" || p === null) continue;
+      const o = p as Record<string, unknown>;
+      const channel = validChannels.has(String(o["channel"])) ? String(o["channel"]) : "instagram";
+      const title = String(o["title"] ?? "").trim().slice(0, 200);
+      const body = String(o["body"] ?? "").trim().slice(0, 2000);
+      if (!title || !body) continue;
+      const hashtags = Array.isArray(o["hashtags"])
+        ? o["hashtags"].slice(0, 10).map((h) => String(h).replace(/^#/, "").trim().slice(0, 40)).filter(Boolean)
+        : [];
+      const offset = Math.min(30, Math.max(0, Number(o["day_offset"]) || 0));
+      const date = new Date(today);
+      date.setDate(date.getDate() + offset);
+      postsToInsert.push({
+        channel,
+        content_type: "post",
+        title,
+        body,
+        hashtags,
+        scheduled_date: date.toISOString().slice(0, 10),
+      });
+    }
+
+    let savedPosts: SpecialistResult["calendar_posts"] = [];
+    if (postsToInsert.length > 0) {
+      const { data: inserted } = await supabase
+        .from("marketing_content")
+        .insert(postsToInsert.map((p) => ({ business_id: business.id, status: "drafted", ...p })))
+        .select("id, channel, title, body, hashtags, scheduled_date");
+      savedPosts = (inserted ?? []).map((r: { id: string; channel: string; title: string; body: string; hashtags: string[] | null; scheduled_date: string | null }) => ({
+        id: r.id,
+        channel: r.channel,
+        title: r.title,
+        body: r.body,
+        hashtags: r.hashtags ?? [],
+        scheduled_date: r.scheduled_date,
+      }));
+    }
+
+    output = {
+      summary: String(raw["summary"] ?? "").slice(0, 1000) || "No summary returned.",
+      deliverable:
+        savedPosts.length > 0
+          ? `A ${savedPosts.length}-post content calendar was generated and saved. View it below or on the Marketing page.`
+          : "The AI did not return any usable posts. Try running this task again.",
+      key_points: Array.isArray(raw["key_points"]) ? raw["key_points"].slice(0, 8).map((s) => String(s).slice(0, 300)) : [],
+      next_actions: Array.isArray(raw["next_actions"]) ? raw["next_actions"].slice(0, 6).map((s) => String(s).slice(0, 300)) : [],
+      generated_html: null,
+      calendar_posts: savedPosts.length > 0 ? savedPosts : null,
     };
   } else {
     provider = activeProviderName();
@@ -947,6 +1034,7 @@ Respond with strict JSON: {"summary": string (max 400 chars), "deliverable": str
       key_points: Array.isArray(raw["key_points"]) ? raw["key_points"].slice(0, 8).map((s) => String(s).slice(0, 300)) : [],
       next_actions: Array.isArray(raw["next_actions"]) ? raw["next_actions"].slice(0, 6).map((s) => String(s).slice(0, 300)) : [],
       generated_html: null,
+      calendar_posts: null,
     };
   }
 
