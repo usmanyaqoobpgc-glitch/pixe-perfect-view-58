@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
+import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as BillingRouteImport } from './routes/billing'
 import { Route as BusinessesRouteImport } from './routes/businesses'
 import { Route as CompetitorsRouteImport } from './routes/competitors'
@@ -46,6 +47,11 @@ const AgentsRoute = AgentsRouteImport.update({
 const AnalyticsRoute = AnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApprovalsRoute = ApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BillingRoute = BillingRouteImport.update({
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/agents': typeof AgentsRoute
   '/analytics': typeof AnalyticsRoute
+  '/approvals': typeof ApprovalsRoute
   '/billing': typeof BillingRoute
   '/businesses': typeof BusinessesRoute
   '/competitors': typeof CompetitorsRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/agents': typeof AgentsRoute
   '/analytics': typeof AnalyticsRoute
+  '/approvals': typeof ApprovalsRoute
   '/billing': typeof BillingRoute
   '/businesses': typeof BusinessesRoute
   '/competitors': typeof CompetitorsRoute
@@ -165,6 +173,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/agents': typeof AgentsRoute
   '/analytics': typeof AnalyticsRoute
+  '/approvals': typeof ApprovalsRoute
   '/billing': typeof BillingRoute
   '/businesses': typeof BusinessesRoute
   '/competitors': typeof CompetitorsRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agents'
     | '/analytics'
+    | '/approvals'
     | '/billing'
     | '/businesses'
     | '/competitors'
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agents'
     | '/analytics'
+    | '/approvals'
     | '/billing'
     | '/businesses'
     | '/competitors'
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/agents'
     | '/analytics'
+    | '/approvals'
     | '/billing'
     | '/businesses'
     | '/competitors'
@@ -248,6 +260,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AgentsRoute: typeof AgentsRoute
   AnalyticsRoute: typeof AnalyticsRoute
+  ApprovalsRoute: typeof ApprovalsRoute
   BillingRoute: typeof BillingRoute
   BusinessesRoute: typeof BusinessesRoute
   CompetitorsRoute: typeof CompetitorsRoute
@@ -292,6 +305,13 @@ declare module '@tanstack/react-router' {
       path: '/analytics'
       fullPath: '/analytics'
       preLoaderRoute: typeof AnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/approvals': {
+      id: '/approvals'
+      path: '/approvals'
+      fullPath: '/approvals'
+      preLoaderRoute: typeof ApprovalsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/billing': {
@@ -400,6 +420,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   AgentsRoute: AgentsRoute,
   AnalyticsRoute: AnalyticsRoute,
+  ApprovalsRoute: ApprovalsRoute,
   BillingRoute: BillingRoute,
   BusinessesRoute: BusinessesRoute,
   CompetitorsRoute: CompetitorsRoute,

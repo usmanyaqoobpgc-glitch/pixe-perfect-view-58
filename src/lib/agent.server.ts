@@ -352,6 +352,30 @@ export async function getDashboard(supabase: DB, userId: string, businessId: str
 }
 
 // ---------------------------------------------------------------------------
+// Cross-business pending approvals (for the dedicated Approvals view)
+// ---------------------------------------------------------------------------
+
+export async function listPendingApprovals(supabase: DB, userId: string) {
+  const { data: tasks, error } = await supabase
+    .from("agent_tasks")
+    .select("id, business_id, title, description, task_type, assigned_agent_type, priority, approval_reason, created_at")
+    .eq("user_id", userId)
+    .eq("status", "awaiting_approval")
+    .order("created_at", { ascending: true });
+  if (error) throw new Error("Unable to load pending approvals.");
+
+  const list = tasks ?? [];
+  const businessIds = [...new Set(list.map((t: { business_id: string }) => t.business_id))];
+  const businessNames: Record<string, string> = {};
+  if (businessIds.length > 0) {
+    const { data: businesses } = await supabase.from("businesses").select("id, name").in("id", businessIds).eq("user_id", userId);
+    for (const b of businesses ?? []) businessNames[b.id] = b.name;
+  }
+
+  return list.map((t: (typeof list)[number]) => ({ ...t, business_name: businessNames[t.business_id] ?? "Unknown business" }));
+}
+
+// ---------------------------------------------------------------------------
 // Task creation / approval / cancellation
 // ---------------------------------------------------------------------------
 

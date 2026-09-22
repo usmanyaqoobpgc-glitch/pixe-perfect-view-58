@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Briefcase, Target, Sparkles, Search, Users, Globe,
   Megaphone, UserPlus, Users2, CheckSquare, BarChart3, Bot, Bell,
   Shield, Settings, CreditCard, Moon, Sun, LogOut, Menu, X, ChevronRight,
-  ShieldCheck,
+  ShieldCheck, CheckCircle2,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
@@ -32,6 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { section: 'growth', label: 'Tasks', path: '/tasks', icon: CheckSquare },
   { section: 'analytics', label: 'Revenue & Analytics', path: '/analytics', icon: BarChart3 },
   { section: 'system', label: 'AI Agents', path: '/agents', icon: Bot },
+  { section: 'system', label: 'Pending Approvals', path: '/approvals', icon: CheckCircle2 },
   { section: 'system', label: 'Notifications', path: '/notifications', icon: Bell },
   { section: 'system', label: 'Security Center', path: '/security', icon: Shield },
   { section: 'system', label: 'Settings', path: '/settings', icon: Settings },

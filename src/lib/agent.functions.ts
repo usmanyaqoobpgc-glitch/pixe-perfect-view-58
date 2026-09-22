@@ -17,6 +17,13 @@ export const getAgentDashboard = createServerFn({ method: "POST" })
     return getDashboard(context.supabase, context.userId, data.businessId);
   });
 
+export const getPendingApprovals = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { listPendingApprovals } = await import("./agent.server");
+    return listPendingApprovals(context.supabase, context.userId);
+  });
+
 export const executeAgentTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: { taskId: string }) => data)
