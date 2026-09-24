@@ -128,6 +128,7 @@ function ResultPanel({ task }: { task: AgentTask }) {
   const keyPoints = Array.isArray(result['key_points']) ? (result['key_points'] as unknown[]).map(String) : [];
   const nextActions = Array.isArray(result['next_actions']) ? (result['next_actions'] as unknown[]).map(String) : [];
   const generatedHtml = typeof result['generated_html'] === 'string' ? result['generated_html'] : '';
+  const generatedHtmlKind = result['generated_html_kind'] === 'document' ? 'document' : 'website';
   const calendarPosts = Array.isArray(result['calendar_posts'])
     ? (result['calendar_posts'] as unknown[]).filter(
         (p): p is { id: string; channel: string; title: string; body: string; hashtags: string[]; scheduled_date: string | null } =>
@@ -148,7 +149,7 @@ function ResultPanel({ task }: { task: AgentTask }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${task.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60) || 'website'}.html`;
+    a.download = `${task.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60) || generatedHtmlKind}.html`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -166,15 +167,22 @@ function ResultPanel({ task }: { task: AgentTask }) {
         <div className="mt-2 space-y-3">
           {summary && <p className="text-sm text-slate-600 dark:text-slate-300">{summary}</p>}
           {generatedHtml && (
-            <div className="flex items-center gap-2">
-              <button onClick={openPreview} className="btn-primary text-xs px-3 py-1.5">
-                <ExternalLink className="w-3.5 h-3.5" />
-                Preview website
-              </button>
-              <button onClick={downloadHtml} className="btn-secondary text-xs px-3 py-1.5">
-                <Download className="w-3.5 h-3.5" />
-                Download HTML
-              </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <button onClick={openPreview} className="btn-primary text-xs px-3 py-1.5">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  {generatedHtmlKind === 'document' ? 'Preview document' : 'Preview website'}
+                </button>
+                <button onClick={downloadHtml} className="btn-secondary text-xs px-3 py-1.5">
+                  <Download className="w-3.5 h-3.5" />
+                  Download HTML
+                </button>
+              </div>
+              {generatedHtmlKind === 'document' && (
+                <p className="text-[11px] text-slate-400 mt-1.5">
+                  Tip: after previewing, use your browser's Print (Ctrl/Cmd+P) and choose "Save as PDF" to get a PDF file.
+                </p>
+              )}
             </div>
           )}
           {calendarPosts.length > 0 && (

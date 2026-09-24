@@ -634,7 +634,8 @@ function fallbackPlan(objective: string): ObjectivePlan {
   if (/seo|keyword|search ranking|google ranking/.test(lower)) push("seo", "Produce SEO recommendations", objective);
   if (/social media|instagram|tiktok|facebook|youtube|twitter|\bx\.com\b|post(s)?\b/.test(lower)) push("social_media", "Draft the social media content", objective);
   if (/code|app|website|software|api|database|build (a|an|my) (app|website|site)/.test(lower)) push("coding", "Produce a technical implementation plan", objective);
-  if (/budget|cash flow|financ|pricing|unit economics|forecast/.test(lower)) push("finance", "Produce the financial breakdown", objective);
+  if (/budget|cash flow|financ|pricing|unit economics|forecast|invoice|quote|quotation/.test(lower)) push("finance", "Produce the financial breakdown", objective);
+  if (/proposal|one-pager|one pager|pitch deck|pitch doc|contract|agreement template|memo|report/.test(lower)) push("business_strategy", "Produce the requested document", objective);
   if (/hire|hiring|recruit|job description|onboard(ing)? (a|new) (employee|hire)/.test(lower)) push("hr_recruitment", "Draft the hiring plan", objective);
   if (/support ticket|customer (service|support)|faq|complaint/.test(lower)) push("customer_support", "Draft support content", objective);
   if (/design|logo|color palette|layout|ui\b|ux\b|brand identity/.test(lower)) push("design", "Produce the design brief", objective);
@@ -855,14 +856,19 @@ interface SpecialistResult {
   provider: AiProviderName;
   agent_type: SpecialistType;
   run_id: string | null;
-  /** Present only for coding-agent tasks that produce a real, previewable single-file website. */
+  /** Present for coding-agent website tasks or finance/business_strategy document tasks that produce a real, previewable single-file HTML output. */
   generated_html: string | null;
+  /** Set when generated_html is a print-ready document (proposal/invoice/report) rather than a website, so the UI can label the buttons accordingly. */
+  generated_html_kind: "website" | "document" | null;
   /** Present only for social-media tasks that produce a real content calendar saved to marketing_content. */
   calendar_posts: { id: string; channel: string; title: string; body: string; hashtags: string[]; scheduled_date: string | null }[] | null;
 }
 
 /** Matches coding-agent tasks that should produce an actual HTML file, not just a written plan. */
 const WEBSITE_BUILD_PATTERN = /\b(website|landing page|web page|webpage|home page|homepage|site)\b/i;
+
+/** Matches finance/strategy tasks that should produce a real, printable document instead of a markdown plan. */
+const DOCUMENT_BUILD_PATTERN = /\b(proposal|invoice|quote|quotation|report|one-pager|one pager|pitch deck|pitch doc|contract|agreement template|memo)\b/i;
 
 /** Matches social-media tasks that should produce a real, saved content calendar instead of a written plan. */
 const CONTENT_CALENDAR_PATTERN = /\b(content calendar|posting schedule|post schedule|content schedule|social media (plan|calendar|posts))\b/i;
@@ -883,6 +889,9 @@ async function runSpecialist(
 
   const isWebsiteBuild = type === "coding" && WEBSITE_BUILD_PATTERN.test(`${task.title} ${task.description ?? ""}`);
   const isContentCalendar = type === "social_media" && CONTENT_CALENDAR_PATTERN.test(`${task.title} ${task.description ?? ""}`);
+  const isDocumentBuild =
+    (type === "finance" || type === "business_strategy") &&
+    DOCUMENT_BUILD_PATTERN.test(`${task.title} ${task.description ?? ""}`);
 
   let output: Omit<SpecialistResult, "provider" | "agent_type" | "run_id">;
   let provider: SpecialistResult["provider"];
@@ -896,6 +905,7 @@ async function runSpecialist(
       key_points: ["AI provider not configured", "Outline only"],
       next_actions: ["Configure the server-side AI provider to get real results."],
       generated_html: null,
+      generated_html_kind: null,
       calendar_posts: null,
     };
   } else if (isWebsiteBuild) {
@@ -949,6 +959,45 @@ Respond with strict JSON: {"summary": string (max 400 chars, describing what pag
       key_points: Array.isArray(raw["key_points"]) ? raw["key_points"].slice(0, 8).map((s) => String(s).slice(0, 300)) : [],
       next_actions: Array.isArray(raw["next_actions"]) ? raw["next_actions"].slice(0, 6).map((s) => String(s).slice(0, 300)) : [],
       generated_html: validHtml ? html.slice(0, 100_000) : null,
+      generated_html_kind: validHtml ? "website" : null,
+      calendar_posts: null,
+    };
+  } else if (isDocumentBuild) {
+    provider = activeProviderName();
+    const raw = await chatJSON<Record<string, unknown>>([
+      {
+        role: "system",
+        content: `You are a specialist producing a real, print-ready business document (a proposal, invoice, quote, one-pager, report, or similar) as a single-file HTML page designed to look correct when printed or saved as a PDF — not a generic web page.
+Produce a complete, self-contained HTML document: all CSS inline in a <style> tag, no external stylesheets or scripts. Use a clean, professional document layout: a header with the business name, the document title and today's date, clearly structured sections (use tables for any line items, pricing, or numbers), generous whitespace, a restrained one-or-two-color palette (mostly black/dark text on white, with the business's accent color used sparingly), and a simple footer.
+Add this exact CSS inside the <style> tag so the page prints cleanly on A4/Letter without browser chrome: "@page { margin: 1.5cm; } @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }". Also set the body max-width to a page-like reading width (e.g. 800px) and center it, with a light gray page background around it, since this document may also be viewed on screen.
+Write real, specific content for this business — no lorem ipsum, no "[Client Name]" placeholders left unfilled (use "Client" or a reasonable generic label only where no real name exists). If figures aren't given, state reasonable placeholders explicitly labeled as estimates.
+Respond with strict JSON: {"summary": string (max 400 chars, describing what document was built), "html": string (the full HTML document starting with <!DOCTYPE html>), "key_points": string[] (3-6 items describing the document's sections), "next_actions": string[] (2-5 items, e.g. "Fill in the client's name", "Print to PDF and send", "Review the pricing before sending")}`,
+      },
+      {
+        role: "user",
+        content: [
+          describeBusiness(business),
+          objectiveTitle ? `\nOverall objective: ${objectiveTitle}` : "",
+          `\nYour assigned task: ${task.title}`,
+          task.description ? `Task details: ${task.description}` : "",
+          planContext ? `\nRelevant business plan context:\n${planContext}` : "",
+          opsContext ? `\nOperational data:\n${opsContext}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      },
+    ]);
+    const html = String(raw["html"] ?? "").trim();
+    const validHtml = /^<!doctype html>/i.test(html) || /^<html/i.test(html);
+    output = {
+      summary: String(raw["summary"] ?? "").slice(0, 1000) || "No summary returned.",
+      deliverable: validHtml
+        ? "A print-ready document was generated. Use Preview to view it, then print to PDF from your browser, or Download the HTML file."
+        : "The AI did not return valid HTML. Try running this task again.",
+      key_points: Array.isArray(raw["key_points"]) ? raw["key_points"].slice(0, 8).map((s) => String(s).slice(0, 300)) : [],
+      next_actions: Array.isArray(raw["next_actions"]) ? raw["next_actions"].slice(0, 6).map((s) => String(s).slice(0, 300)) : [],
+      generated_html: validHtml ? html.slice(0, 100_000) : null,
+      generated_html_kind: validHtml ? "document" : null,
       calendar_posts: null,
     };
   } else if (isContentCalendar) {
@@ -1027,6 +1076,7 @@ Respond with strict JSON: {"summary": string (max 400 chars), "key_points": stri
       key_points: Array.isArray(raw["key_points"]) ? raw["key_points"].slice(0, 8).map((s) => String(s).slice(0, 300)) : [],
       next_actions: Array.isArray(raw["next_actions"]) ? raw["next_actions"].slice(0, 6).map((s) => String(s).slice(0, 300)) : [],
       generated_html: null,
+      generated_html_kind: null,
       calendar_posts: savedPosts.length > 0 ? savedPosts : null,
     };
   } else {
@@ -1058,6 +1108,7 @@ Respond with strict JSON: {"summary": string (max 400 chars), "deliverable": str
       key_points: Array.isArray(raw["key_points"]) ? raw["key_points"].slice(0, 8).map((s) => String(s).slice(0, 300)) : [],
       next_actions: Array.isArray(raw["next_actions"]) ? raw["next_actions"].slice(0, 6).map((s) => String(s).slice(0, 300)) : [],
       generated_html: null,
+      generated_html_kind: null,
       calendar_posts: null,
     };
   }
