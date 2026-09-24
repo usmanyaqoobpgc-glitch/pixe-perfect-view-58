@@ -7,11 +7,12 @@ import { PageHeader } from '@/components/ui';
 import { useNavigate } from '@tanstack/react-router';
 import {
   Sparkles, Check, ChevronRight, ChevronLeft, DollarSign, Globe,
-  Users, Clock, Target, Megaphone, Lightbulb,
+  Users, Clock, Target, Megaphone, Lightbulb, Building2,
 } from 'lucide-react';
 import { PLAN_SECTIONS, SECTION_LABELS } from '@/lib/types';
 
 const STEPS = [
+  { key: 'org_type', label: 'Organization Type', icon: Building2, description: 'What kind of organization is this?' },
   { key: 'idea', label: 'Business Idea', icon: Lightbulb, description: 'What do you want to build?' },
   { key: 'budget', label: 'Budget', icon: DollarSign, description: 'How much can you invest?' },
   { key: 'market', label: 'Market', icon: Globe, description: 'Where will you operate?' },
@@ -20,6 +21,22 @@ const STEPS = [
   { key: 'model', label: 'Business Model', icon: Target, description: 'How will you make money?' },
   { key: 'channels', label: 'Marketing Channels', icon: Megaphone, description: 'How will you reach people?' },
   { key: 'review', label: 'Review & Generate', icon: Sparkles, description: 'Confirm and generate your plan' },
+];
+
+const WORKSPACE_TYPES: { value: string; label: string }[] = [
+  { value: 'startup', label: 'Startup' },
+  { value: 'company', label: 'Company' },
+  { value: 'small_business', label: 'Small Business' },
+  { value: 'agency', label: 'Agency' },
+  { value: 'ecommerce', label: 'Ecommerce' },
+  { value: 'creator', label: 'Creator' },
+  { value: 'marketing_team', label: 'Marketing Team' },
+  { value: 'software_company', label: 'Software Company' },
+  { value: 'professional_services', label: 'Professional Services' },
+  { value: 'school', label: 'School' },
+  { value: 'college', label: 'College' },
+  { value: 'university', label: 'University' },
+  { value: 'other', label: 'Other' },
 ];
 
 const BUSINESS_MODELS = [
@@ -71,6 +88,7 @@ export function PlannerPage() {
 
 
   const [form, setForm] = useState({
+    workspace_type: 'startup',
     idea: '',
     budget: '',
     country: 'United States',
@@ -98,6 +116,7 @@ export function PlannerPage() {
 
   const canProceed = () => {
     switch (STEPS[step].key) {
+      case 'org_type': return form.workspace_type.length > 0;
       case 'idea': return form.idea.trim().length >= 10;
       case 'budget': return form.budget !== '' && Number(form.budget) >= 0;
       case 'market': return form.country.trim().length > 0;
@@ -128,6 +147,7 @@ export function PlannerPage() {
             user_id: user!.id,
             name: form.idea.slice(0, 50) + '...',
             idea: form.idea,
+            workspace_type: form.workspace_type,
             budget: Number(form.budget),
             country: form.country,
             target_customer: form.target_customer,
@@ -278,6 +298,31 @@ export function PlannerPage() {
 
         {/* Step content */}
         <div className="space-y-4 animate-fade-in" key={step}>
+          {STEPS[step].key === 'org_type' && (
+            <div>
+              <label className="label">What kind of organization is this?</label>
+              <p className="text-xs text-slate-400 mb-3">
+                This helps your Business Agent tailor plans and language to your context — a school gets very different advice than an ecommerce store.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {WORKSPACE_TYPES.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => updateForm('workspace_type', t.value)}
+                    className={`px-3 py-2 rounded-lg text-sm border text-left transition ${
+                      form.workspace_type === t.value
+                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/10 text-primary-600'
+                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {STEPS[step].key === 'idea' && (
             <div>
               <label className="label">Describe your business idea</label>
@@ -434,6 +479,7 @@ export function PlannerPage() {
           {STEPS[step].key === 'review' && (
             <div className="space-y-3">
               <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 space-y-2 text-sm">
+                <ReviewItem label="Organization Type" value={WORKSPACE_TYPES.find((t) => t.value === form.workspace_type)?.label ?? form.workspace_type} />
                 <ReviewItem label="Idea" value={form.idea} />
                 <ReviewItem label="Budget" value={`$${form.budget}`} />
                 <ReviewItem label="Market" value={form.country} />

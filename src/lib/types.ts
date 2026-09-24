@@ -10,6 +10,11 @@ export interface Profile {
   updated_at: string;
 }
 
+export type WorkspaceType =
+  | 'startup' | 'company' | 'small_business' | 'agency' | 'ecommerce'
+  | 'school' | 'college' | 'university' | 'creator' | 'marketing_team'
+  | 'software_company' | 'professional_services' | 'other';
+
 export interface Business {
   id: string;
   user_id: string;
@@ -25,6 +30,7 @@ export interface Business {
   target_deadline: string | null;
   marketing_channels: string[] | null;
   status: 'planning' | 'active' | 'paused' | 'archived';
+  workspace_type: WorkspaceType;
   created_at: string;
   updated_at: string;
 }

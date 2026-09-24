@@ -352,6 +352,7 @@ export type Database = {
           target_deadline: string | null
           updated_at: string
           user_id: string
+          workspace_type: string
         }
         Insert: {
           available_time_hours_per_week?: number | null
@@ -370,6 +371,7 @@ export type Database = {
           target_deadline?: string | null
           updated_at?: string
           user_id?: string
+          workspace_type?: string
         }
         Update: {
           available_time_hours_per_week?: number | null
@@ -388,6 +390,7 @@ export type Database = {
           target_deadline?: string | null
           updated_at?: string
           user_id?: string
+          workspace_type?: string
         }
         Relationships: []
       }

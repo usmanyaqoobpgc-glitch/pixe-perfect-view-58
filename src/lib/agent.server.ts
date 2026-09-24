@@ -196,7 +196,7 @@ async function assertBusinessOwned(supabase: DB, userId: string, businessId: str
   const { data, error } = await supabase
     .from("businesses")
     .select(
-      "id, name, idea, budget, country, target_customer, business_model, revenue_target, target_deadline, marketing_channels, skills, status",
+      "id, name, idea, budget, country, target_customer, business_model, revenue_target, target_deadline, marketing_channels, skills, status, workspace_type",
     )
     .eq("id", businessId)
     .eq("user_id", userId)
@@ -502,9 +502,40 @@ export async function cancelTask(supabase: DB, userId: string, taskId: string) {
 
 type BusinessRow = Awaited<ReturnType<typeof assertBusinessOwned>>;
 
+const WORKSPACE_TYPE_LABELS: Record<string, string> = {
+  startup: "Startup",
+  company: "Established company",
+  small_business: "Small business",
+  agency: "Agency",
+  ecommerce: "Ecommerce business",
+  school: "School",
+  college: "College",
+  university: "University",
+  creator: "Individual creator",
+  marketing_team: "Marketing team",
+  software_company: "Software company",
+  professional_services: "Professional services firm",
+  other: "Organization",
+};
+
+/** Extra guidance folded into every specialist/orchestrator prompt so output fits the kind of organization this is. */
+const WORKSPACE_TYPE_GUIDANCE: Record<string, string> = {
+  school: "This is an educational institution, not a for-profit startup — favor language like students, parents, admissions, enrollment, faculty and curriculum over customers/revenue/funnels where relevant.",
+  college: "This is a higher-education institution — favor language like students, admissions, programs, faculty and alumni over customers/revenue/funnels where relevant.",
+  university: "This is a higher-education institution — favor language like students, admissions, programs, faculty and alumni over customers/revenue/funnels where relevant.",
+  agency: "This is an agency serving clients — favor language like clients, retainers, deliverables and case studies over end-consumer marketing funnels.",
+  ecommerce: "This is an ecommerce business — favor language like SKUs, catalog, checkout, fulfillment, and repeat purchase rate.",
+  creator: "This is an individual creator's business — favor language like audience, content, sponsorships and personal brand over corporate org structures.",
+  marketing_team: "This is an internal marketing team, not an external-facing company — favor language like campaigns, stakeholders and internal reporting.",
+  software_company: "This is a software company — favor language like product, users, churn, roadmap and engineering alongside the usual business metrics.",
+  professional_services: "This is a professional services firm — favor language like clients, engagements, billable work and referrals.",
+};
+
 function describeBusiness(b: BusinessRow): string {
-  return [
+  const workspaceType = (b as { workspace_type?: string }).workspace_type ?? "startup";
+  const lines = [
     `Business: ${b.name}`,
+    `Type: ${WORKSPACE_TYPE_LABELS[workspaceType] ?? "Startup"}`,
     `Idea: ${b.idea}`,
     `Business model: ${b.business_model ?? "unspecified"}`,
     `Target customer: ${b.target_customer ?? "unspecified"}`,
@@ -513,7 +544,10 @@ function describeBusiness(b: BusinessRow): string {
     `Revenue target: $${b.revenue_target}${b.target_deadline ? ` by ${b.target_deadline}` : ""}`,
     `Marketing channels: ${(b.marketing_channels ?? []).join(", ") || "unspecified"}`,
     `Founder skills: ${(b.skills ?? []).join(", ") || "unspecified"}`,
-  ].join("\n");
+  ];
+  const guidance = WORKSPACE_TYPE_GUIDANCE[workspaceType];
+  if (guidance) lines.push(`Context note: ${guidance}`);
+  return lines.join("\n");
 }
 
 async function loadPlanSections(supabase: DB, businessId: string, keys: string[]) {
