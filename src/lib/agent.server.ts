@@ -662,7 +662,7 @@ function fallbackPlan(objective: string): ObjectivePlan {
   if (/market|customer|audience|demand/.test(lower)) push("market_research", "Research the target market", objective);
   if (/competit/.test(lower)) push("competitor", "Analyze competitors", objective);
   if (/market(ing)?|campaign|brand|launch/.test(lower)) push("marketing", "Draft the marketing plan", objective);
-  if (/sales|lead|outreach|pipeline/.test(lower)) push("sales", "Design the sales approach", objective);
+  if (/sales|lead|outreach|pipeline|email/.test(lower)) push("sales", "Design the sales approach", objective);
   if (/revenue|metric|analytic|profit|\bkpi/.test(lower)) push("analytics", "Analyze current metrics", objective);
   if (/blog|article|copy|write|content(?! calendar)/.test(lower)) push("content_writing", "Draft the requested content", objective);
   if (/seo|keyword|search ranking|google ranking/.test(lower)) push("seo", "Produce SEO recommendations", objective);
@@ -896,6 +896,8 @@ interface SpecialistResult {
   generated_html_kind: "website" | "document" | null;
   /** Present only for social-media tasks that produce a real content calendar saved to marketing_content. */
   calendar_posts: { id: string; channel: string; title: string; body: string; hashtags: string[]; scheduled_date: string | null }[] | null;
+  /** Present only for sales/customer_support tasks that produce real, ready-to-send email drafts (never actually sent by the agent). */
+  email_drafts: { subject: string; body: string; recipient_hint: string }[] | null;
 }
 
 /** Matches coding-agent tasks that should produce an actual HTML file, not just a written plan. */
@@ -906,6 +908,9 @@ const DOCUMENT_BUILD_PATTERN = /\b(proposal|invoice|quote|quotation|report|one-p
 
 /** Matches social-media tasks that should produce a real, saved content calendar instead of a written plan. */
 const CONTENT_CALENDAR_PATTERN = /\b(content calendar|posting schedule|post schedule|content schedule|social media (plan|calendar|posts))\b/i;
+
+/** Matches sales/support tasks that should produce real, ready-to-send email drafts instead of a written plan. */
+const EMAIL_DRAFT_PATTERN = /\b(email|outreach message|follow[- ]?up message|cold email|welcome message|drip campaign)\b/i;
 
 async function runSpecialist(
   supabase: DB,
@@ -926,6 +931,9 @@ async function runSpecialist(
   const isDocumentBuild =
     (type === "finance" || type === "business_strategy") &&
     DOCUMENT_BUILD_PATTERN.test(`${task.title} ${task.description ?? ""}`);
+  const isEmailDraft =
+    (type === "sales" || type === "customer_support") &&
+    EMAIL_DRAFT_PATTERN.test(`${task.title} ${task.description ?? ""}`);
 
   let output: Omit<SpecialistResult, "provider" | "agent_type" | "run_id">;
   let provider: SpecialistResult["provider"];
@@ -940,6 +948,7 @@ async function runSpecialist(
       next_actions: ["Configure the server-side AI provider to get real results."],
       generated_html: null,
       generated_html_kind: null,
+      email_drafts: null,
       calendar_posts: null,
     };
   } else if (isWebsiteBuild) {
@@ -994,6 +1003,7 @@ Respond with strict JSON: {"summary": string (max 400 chars, describing what pag
       next_actions: Array.isArray(raw["next_actions"]) ? raw["next_actions"].slice(0, 6).map((s) => String(s).slice(0, 300)) : [],
       generated_html: validHtml ? html.slice(0, 100_000) : null,
       generated_html_kind: validHtml ? "website" : null,
+      email_drafts: null,
       calendar_posts: null,
     };
   } else if (isDocumentBuild) {
@@ -1032,6 +1042,7 @@ Respond with strict JSON: {"summary": string (max 400 chars, describing what doc
       next_actions: Array.isArray(raw["next_actions"]) ? raw["next_actions"].slice(0, 6).map((s) => String(s).slice(0, 300)) : [],
       generated_html: validHtml ? html.slice(0, 100_000) : null,
       generated_html_kind: validHtml ? "document" : null,
+      email_drafts: null,
       calendar_posts: null,
     };
   } else if (isContentCalendar) {
@@ -1111,7 +1122,61 @@ Respond with strict JSON: {"summary": string (max 400 chars), "key_points": stri
       next_actions: Array.isArray(raw["next_actions"]) ? raw["next_actions"].slice(0, 6).map((s) => String(s).slice(0, 300)) : [],
       generated_html: null,
       generated_html_kind: null,
+      email_drafts: null,
       calendar_posts: savedPosts.length > 0 ? savedPosts : null,
+    };
+  } else if (isEmailDraft) {
+    provider = activeProviderName();
+    const raw = await chatJSON<Record<string, unknown>>([
+      {
+        role: "system",
+        content: `You are the ${spec.name}, producing real, ready-to-send email drafts — not just a written strategy.
+Generate 1 to 3 email drafts depending on what the task asks for (a single email needs 1; a sequence/campaign needs 2-3 steps).
+Each draft must be complete and usable as-is: a real subject line and a real body (plain text, not HTML, with a greeting, a few short paragraphs, and a sign-off using the business name). Write it as if it will be pasted directly into an email client. Include a short recipient_hint describing who this email is for (e.g. "New leads who haven't responded in 3 days", "Customers who purchased in the last 30 days").
+This agent never sends anything — the founder reviews, personalizes, and sends these themselves.
+Respond with strict JSON: {"summary": string (max 400 chars), "key_points": string[] (3-6 items), "next_actions": string[] (2-5 items, e.g. "Personalize the greeting for each recipient", "Connect this to your email tool to send"), "emails": [{"subject": string, "body": string, "recipient_hint": string}]}`,
+      },
+      {
+        role: "user",
+        content: [
+          describeBusiness(business),
+          objectiveTitle ? `\nOverall objective: ${objectiveTitle}` : "",
+          `\nYour assigned task: ${task.title}`,
+          task.description ? `Task details: ${task.description}` : "",
+          planContext ? `\nRelevant business plan context:\n${planContext}` : "",
+          opsContext ? `\nLeads/customers on file:\n${opsContext}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      },
+    ]);
+    const rawEmails = Array.isArray(raw["emails"]) ? raw["emails"] : [];
+    const emails: SpecialistResult["email_drafts"] = [];
+    for (const e of rawEmails.slice(0, 5)) {
+      if (typeof e !== "object" || e === null) continue;
+      const o = e as Record<string, unknown>;
+      const subject = String(o["subject"] ?? "").trim().slice(0, 200);
+      const body = String(o["body"] ?? "").trim().slice(0, 4000);
+      if (!subject || !body) continue;
+      emails?.push({
+        subject,
+        body,
+        recipient_hint: String(o["recipient_hint"] ?? "").trim().slice(0, 200) || "General audience",
+      });
+    }
+
+    output = {
+      summary: String(raw["summary"] ?? "").slice(0, 1000) || "No summary returned.",
+      deliverable:
+        emails && emails.length > 0
+          ? `${emails.length} ready-to-send email draft${emails.length > 1 ? "s were" : " was"} generated. View them below, copy, and send from your own email client.`
+          : "The AI did not return any usable email drafts. Try running this task again.",
+      key_points: Array.isArray(raw["key_points"]) ? raw["key_points"].slice(0, 8).map((s) => String(s).slice(0, 300)) : [],
+      next_actions: Array.isArray(raw["next_actions"]) ? raw["next_actions"].slice(0, 6).map((s) => String(s).slice(0, 300)) : [],
+      generated_html: null,
+      generated_html_kind: null,
+      email_drafts: emails && emails.length > 0 ? emails : null,
+      calendar_posts: null,
     };
   } else {
     provider = activeProviderName();
@@ -1143,6 +1208,7 @@ Respond with strict JSON: {"summary": string (max 400 chars), "deliverable": str
       next_actions: Array.isArray(raw["next_actions"]) ? raw["next_actions"].slice(0, 6).map((s) => String(s).slice(0, 300)) : [],
       generated_html: null,
       generated_html_kind: null,
+      email_drafts: null,
       calendar_posts: null,
     };
   }

@@ -16,7 +16,7 @@ import {
   Bot, Sparkles, Search, Users, Target, Megaphone, UserPlus, BarChart3, Zap, Shield, Lock,
   Play, Pause, RefreshCw, Check, X, ChevronDown, ChevronUp, AlertTriangle, Loader2, Activity,
   PenTool, TrendingUp, Share2, Code, DollarSign, Briefcase, Headphones, Palette, Table, ClipboardList, GraduationCap,
-  ExternalLink, Download,
+  ExternalLink, Download, Copy, Mail,
 } from 'lucide-react';
 import type { Business } from '@/lib/types';
 import { PENDING_OBJECTIVE_KEY } from '@/components/CommandBar';
@@ -135,7 +135,20 @@ function ResultPanel({ task }: { task: AgentTask }) {
           typeof p === 'object' && p !== null,
       )
     : [];
+  const emailDrafts = Array.isArray(result['email_drafts'])
+    ? (result['email_drafts'] as unknown[]).filter(
+        (e): e is { subject: string; body: string; recipient_hint: string } => typeof e === 'object' && e !== null,
+      )
+    : [];
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   if (!summary && !deliverable) return null;
+
+  function copyEmail(index: number, subject: string, body: string) {
+    navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`).then(() => {
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    });
+  }
 
   function openPreview() {
     const blob = new Blob([generatedHtml], { type: 'text/html' });
@@ -210,6 +223,36 @@ function ResultPanel({ task }: { task: AgentTask }) {
                       )}
                     </div>
                   ))}
+              </div>
+            </div>
+          )}
+          {emailDrafts.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-slate-500 mb-2">
+                {emailDrafts.length} email draft{emailDrafts.length > 1 ? 's' : ''} — ready to copy and send
+              </p>
+              <div className="space-y-2">
+                {emailDrafts.map((e, i) => (
+                  <div key={i} className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 bg-white dark:bg-slate-900">
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mb-0.5">
+                          <Mail className="w-3 h-3" />
+                          {e.recipient_hint}
+                        </div>
+                        <p className="text-xs font-medium text-slate-900 dark:text-white">{e.subject}</p>
+                      </div>
+                      <button
+                        onClick={() => copyEmail(i, e.subject, e.body)}
+                        className="btn-secondary text-xs px-2.5 py-1 shrink-0"
+                      >
+                        <Copy className="w-3 h-3" />
+                        {copiedIndex === i ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 whitespace-pre-wrap line-clamp-4">{e.body}</p>
+                  </div>
+                ))}
               </div>
             </div>
           )}
