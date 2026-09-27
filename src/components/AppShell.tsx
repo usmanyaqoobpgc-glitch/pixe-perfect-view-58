@@ -68,10 +68,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       >
         <div className="flex items-center gap-2 px-5 h-16 border-b border-slate-200 dark:border-slate-800 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-primary-600 text-white flex items-center justify-center">
+          <div className="w-8 h-8 rounded-md bg-primary-500 text-white flex items-center justify-center">
             <Sparkles className="w-5 h-5" />
           </div>
-          <span className="font-bold text-slate-900 dark:text-white">AI Business Builder</span>
+          <span className="font-display font-semibold tracking-tight text-slate-900 dark:text-white">AI Business Builder</span>
           <button onClick={() => setSidebarOpen(false)} className="ml-auto lg:hidden text-slate-400">
             <X className="w-5 h-5" />
           </button>
