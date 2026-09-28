@@ -427,16 +427,23 @@ export async function createTask(
 export async function decideApproval(supabase: DB, userId: string, taskId: string, approve: boolean) {
   const { data: task } = await supabase
     .from("agent_tasks")
-    .select("id, business_id, agent_id, status, parent_task_id")
+    .select("id, business_id, agent_id, status, parent_task_id, result")
     .eq("id", taskId)
     .eq("user_id", userId)
     .maybeSingle();
   if (!task) throw new Error("Task not found or you do not have access to it.");
   if (task.status !== "awaiting_approval") throw new Error("This task is not awaiting approval.");
 
+  const prevResult = (task.result && typeof task.result === "object" ? task.result : {}) as Record<string, unknown>;
   const { data, error } = await supabase
     .from("agent_tasks")
-    .update({ status: approve ? "pending" : "cancelled" })
+    .update({
+      status: approve ? "pending" : "cancelled",
+      result: {
+        ...prevResult,
+        approval: { decision: approve ? "approved" : "rejected", decided_by: userId, decided_at: new Date().toISOString() },
+      },
+    })
     .eq("id", taskId)
     .eq("status", "awaiting_approval")
     .select()
