@@ -21,6 +21,7 @@ export function OverviewPage() {
   const [revenue, setRevenue] = useState<RevenueRecord[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [recommendations, setRecommendations] = useState<Notification[]>([]);
+  const [agentStats, setAgentStats] = useState({ awaiting: 0, completed: 0 });
 
   useEffect(() => {
     async function loadData() {
@@ -44,6 +45,13 @@ export function OverviewPage() {
           setCustomers(customersRes.data as Customer[] ?? []);
           setRevenue(revenueRes.data as RevenueRecord[] ?? []);
           setMilestones(milestonesRes.data as Milestone[] ?? []);
+          const { data: agentTasks } = await supabase
+            .from('agent_tasks').select('status, task_type').eq('user_id', user.id).neq('task_type', 'objective').limit(500);
+          const list = agentTasks ?? [];
+          setAgentStats({
+            awaiting: list.filter((t) => t.status === 'awaiting_approval').length,
+            completed: list.filter((t) => t.status === 'completed').length,
+          });
         }
 
         const { data: notifData } = await supabase
@@ -113,6 +121,8 @@ export function OverviewPage() {
         <StatCard label="Conversion Rate" value={formatPercent(conversionRate)} icon={TrendingUp} color="accent" />
         <StatCard label="Customers" value={customers.length} icon={Users2} color="primary" />
         <StatCard label="Est. MRR" value={formatCurrency(mrr)} icon={BarChart3} color="warning" />
+        <Link to="/approvals"><StatCard label="Agent Approvals Pending" value={agentStats.awaiting} icon={AlertCircle} color="warning" /></Link>
+        <Link to="/agents"><StatCard label="Agent Steps Completed" value={agentStats.completed} icon={Sparkles} color="accent" /></Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
