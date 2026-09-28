@@ -120,7 +120,7 @@ export function OverviewPage() {
       </div>
 
       <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 mb-2">Pipeline</p>
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
         <StatCard label="Active tasks" value={activeTasks} icon={CheckSquare} color="primary" />
         <StatCard label="Leads" value={leads.length} icon={UserPlus} color="primary" />
         <StatCard label="Conversion" value={formatPercent(conversionRate)} icon={TrendingUp} color="accent" />
