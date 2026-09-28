@@ -59,17 +59,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const currentLabel = NAV_ITEMS.find((i) => i.path === location.pathname)?.label ?? 'Overview';
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
+    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-background">
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300',
+          'fixed lg:static inset-y-0 left-0 z-50 w-60 bg-white dark:bg-sidebar border-r border-slate-200 dark:border-white/[0.08] flex flex-col transition-transform duration-300',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
-        <div className="flex items-center gap-2 px-5 h-16 border-b border-slate-200 dark:border-slate-800 shrink-0">
-          <div className="w-8 h-8 rounded-md bg-primary-500 text-white flex items-center justify-center">
-            <Sparkles className="w-5 h-5" />
+        <div className="flex items-center gap-2 px-4 h-14 border-b border-slate-200 dark:border-white/[0.08] shrink-0">
+          <div className="w-7 h-7 rounded-md bg-primary-500 text-white flex items-center justify-center">
+            <Sparkles className="w-4 h-4" />
           </div>
           <span className="font-display font-semibold tracking-tight text-slate-900 dark:text-white">AI Business Builder</span>
           <button onClick={() => setSidebarOpen(false)} className="ml-auto lg:hidden text-slate-400">
@@ -77,10 +77,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
+        <nav className="flex-1 overflow-y-auto py-4 px-2.5 space-y-5">
           {sectionsWithItems.map((section) => (
             <div key={section}>
-              <p className="px-3 mb-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
                 {SECTION_LABELS[section]}
               </p>
               <div className="space-y-0.5">
@@ -90,10 +90,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                     to={item.path}
                     onClick={() => setSidebarOpen(false)}
                     className={cn(
-                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 group',
+                      'relative flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors duration-150 group',
                       location.pathname === item.path
-                        ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400'
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                        ? 'bg-slate-100 dark:bg-white/[0.06] text-slate-900 dark:text-white before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[2px] before:rounded-full before:bg-primary-500'
+                        : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:text-slate-900 dark:hover:text-slate-200'
                     )}
                   >
                     <item.icon className="w-4 h-4 shrink-0" />
@@ -105,9 +105,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
-        <div className="p-3 border-t border-slate-200 dark:border-slate-800 shrink-0">
+        <div className="p-3 border-t border-slate-200 dark:border-white/[0.08] shrink-0">
           <div className="flex items-center gap-3 px-2 py-2">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-accent-500 text-white flex items-center justify-center text-sm font-semibold">
+            <div className="w-8 h-8 rounded-md border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] text-slate-700 dark:text-slate-200 flex items-center justify-center font-display text-sm font-semibold">
               {profile?.full_name?.[0]?.toUpperCase() ?? profile?.email?.[0]?.toUpperCase() ?? '?'}
             </div>
             <div className="flex-1 min-w-0">
@@ -119,7 +119,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <button
             onClick={signOut}
-            className="mt-2 w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            className="mt-2 w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-[13px] text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
           >
             <LogOut className="w-4 h-4" />
             Sign Out
@@ -136,7 +136,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center px-4 lg:px-6 gap-4 shrink-0">
+        <header className="h-14 border-b border-slate-200 dark:border-white/[0.08] bg-white/80 dark:bg-background/80 backdrop-blur flex items-center px-4 lg:px-6 gap-4 shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden text-slate-500"
@@ -151,7 +151,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={toggle}
-              className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              className="p-2 rounded-md text-slate-500 hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors"
               aria-label="Toggle theme"
             >
               {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}

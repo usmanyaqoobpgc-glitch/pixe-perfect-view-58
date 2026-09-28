@@ -650,11 +650,11 @@ export function AgentsPage() {
       )}
 
       {/* Specialist agents + security notice */}
-      <div className="card p-4 mb-6 bg-primary-50 dark:bg-primary-500/10 border-primary-200 dark:border-primary-500/20">
+      <div className="card p-4 mb-8">
         <div className="flex items-start gap-3">
-          <Shield className="w-5 h-5 text-primary-600 shrink-0 mt-0.5" />
+          <Shield className="w-4 h-4 text-primary-500 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-primary-700 dark:text-primary-400">Agent Security Restrictions</p>
+            <p className="text-sm font-medium text-slate-900 dark:text-white">Agent security restrictions</p>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">All agents operate under strict permissions. They cannot:</p>
             <ul className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-1 text-xs text-slate-600 dark:text-slate-400">
               {AGENT_RESTRICTIONS.map((r, i) => <li key={i} className="flex items-center gap-1.5"><Lock className="w-3 h-3 text-slate-400" /> {r}</li>)}
@@ -663,30 +663,32 @@ export function AgentsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Specialist roster</h2>
+        <p className="text-xs text-slate-400">{AGENTS.length} agents · routed automatically by the Business Agent</p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
         {AGENTS.map((agent) => {
           const Icon = agent.icon;
           const runCount = dashboard?.specialistRuns[agent.type] ?? 0;
           return (
-            <div key={agent.type} className="card p-5 hover:shadow-md transition">
-              <div className="flex items-start gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-slate-100 dark:bg-slate-800 text-slate-500">
-                  <Icon className="w-5 h-5" />
+            <div key={agent.type} className="card px-4 py-3.5 transition-colors hover:border-slate-300 dark:hover:border-white/[0.16]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] text-slate-500 dark:text-slate-400">
+                  <Icon className="w-4 h-4" />
                 </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-slate-900 dark:text-white">{agent.name}</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">{runCount} runs</p>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white truncate">{agent.name}</h3>
                 </div>
+                <span className={`text-[11px] tabular-nums px-1.5 py-0.5 rounded ${runCount > 0 ? 'bg-primary-500/10 text-primary-600 dark:text-primary-400' : 'text-slate-400'}`}>
+                  {runCount} {runCount === 1 ? 'run' : 'runs'}
+                </span>
               </div>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{agent.description}</p>
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-slate-500">Permissions:</p>
-                {agent.permissions.map((p, i) => (
-                  <div key={i} className="flex items-center gap-1.5 text-xs text-slate-500">
-                    <Lock className="w-3 h-3" /> {p}
-                  </div>
-                ))}
-              </div>
+              <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400 mt-2.5 line-clamp-2">{agent.description}</p>
+              <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500 truncate">
+                <Lock className="w-3 h-3 shrink-0" />
+                <span className="truncate">{agent.permissions.join(' · ')}</span>
+              </p>
             </div>
           );
         })}

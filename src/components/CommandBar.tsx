@@ -50,13 +50,13 @@ export function CommandBar({ businesses }: { businesses: Business[] }) {
   }
 
   return (
-    <div className="card p-5 mb-6 bg-gradient-to-br from-primary-50 to-accent-50 dark:from-primary-500/10 dark:to-accent-500/10 border-primary-100 dark:border-primary-500/20">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-8 h-8 rounded-lg bg-primary-600 text-white flex items-center justify-center shrink-0">
-          <Sparkles className="w-4 h-4" />
+    <div className="card p-5 mb-8 ring-1 ring-primary-500/10 dark:ring-primary-400/10">
+      <div className="flex items-center gap-2.5 mb-3">
+        <div className="w-7 h-7 rounded-md bg-primary-500 text-white flex items-center justify-center shrink-0">
+          <Sparkles className="w-3.5 h-3.5" />
         </div>
         <div>
-          <h3 className="font-semibold text-slate-900 dark:text-white text-sm">Tell your Business Agent what to do</h3>
+          <h3 className="font-display font-semibold text-slate-900 dark:text-white text-sm leading-tight">Command your Business Agent</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             It plans the work, routes it to the right specialist agents, and runs it.
           </p>
@@ -102,7 +102,7 @@ export function CommandBar({ businesses }: { businesses: Business[] }) {
             key={p}
             type="button"
             onClick={() => setValue(p)}
-            className="text-xs px-2.5 py-1 rounded-full bg-white/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition"
+            className="text-xs px-2.5 py-1 rounded-md border border-slate-200 dark:border-white/[0.1] text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-white/[0.2] transition"
           >
             {p}
           </button>

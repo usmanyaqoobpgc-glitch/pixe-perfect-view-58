@@ -106,19 +106,24 @@ export function OverviewPage() {
 
       <CommandBar businesses={businesses} />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Current Revenue" value={formatCurrency(totalRevenue)} icon={DollarSign} color="accent" />
-        <StatCard label="Total Expenses" value={formatCurrency(totalExpenses)} icon={DollarSign} color="error" />
-        <StatCard label="Revenue Target" value={formatCurrency(revenueTarget)} icon={Target} color="primary" />
+      <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 mb-2">Financials</p>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <StatCard label="Revenue" value={formatCurrency(totalRevenue)} icon={DollarSign} color="accent" />
+        <StatCard label="Expenses" value={formatCurrency(totalExpenses)} icon={DollarSign} color="error" />
+        <StatCard label="Target" value={formatCurrency(revenueTarget)} icon={Target} color="primary" />
         <StatCard
           label="Progress"
           value={formatPercent(progressPct)}
           icon={TrendingUp}
           color={progressPct >= 50 ? 'accent' : 'warning'}
         />
-        <StatCard label="Active Tasks" value={activeTasks} icon={CheckSquare} color="primary" />
+      </div>
+
+      <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 mb-2">Pipeline</p>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
+        <StatCard label="Active tasks" value={activeTasks} icon={CheckSquare} color="primary" />
         <StatCard label="Leads" value={leads.length} icon={UserPlus} color="primary" />
-        <StatCard label="Conversion Rate" value={formatPercent(conversionRate)} icon={TrendingUp} color="accent" />
+        <StatCard label="Conversion" value={formatPercent(conversionRate)} icon={TrendingUp} color="accent" />
         <StatCard label="Customers" value={customers.length} icon={Users2} color="primary" />
         <StatCard label="Est. MRR" value={formatCurrency(mrr)} icon={BarChart3} color="warning" />
         <Link to="/approvals"><StatCard label="Agent Approvals Pending" value={agentStats.awaiting} icon={AlertCircle} color="warning" /></Link>
@@ -194,7 +199,7 @@ export function OverviewPage() {
               to="/businesses"
               className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition"
             >
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 text-white flex items-center justify-center text-sm font-bold">
+              <div className="w-9 h-9 rounded-md border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] text-slate-700 dark:text-slate-200 flex items-center justify-center font-display text-sm font-semibold">
                 {b.name[0]?.toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
