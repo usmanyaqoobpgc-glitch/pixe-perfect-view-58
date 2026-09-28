@@ -341,6 +341,7 @@ export type Database = {
           business_model: string | null
           country: string | null
           created_at: string
+          currency: string
           id: string
           idea: string
           marketing_channels: string[] | null
@@ -360,6 +361,7 @@ export type Database = {
           business_model?: string | null
           country?: string | null
           created_at?: string
+          currency?: string
           id?: string
           idea: string
           marketing_channels?: string[] | null
@@ -379,6 +381,7 @@ export type Database = {
           business_model?: string | null
           country?: string | null
           created_at?: string
+          currency?: string
           id?: string
           idea?: string
           marketing_channels?: string[] | null
@@ -498,6 +501,7 @@ export type Database = {
           channel: string
           content_type: string
           created_at: string
+          hashtags: string[]
           id: string
           scheduled_date: string | null
           status: string
@@ -509,6 +513,7 @@ export type Database = {
           channel: string
           content_type: string
           created_at?: string
+          hashtags?: string[]
           id?: string
           scheduled_date?: string | null
           status?: string
@@ -520,6 +525,7 @@ export type Database = {
           channel?: string
           content_type?: string
           created_at?: string
+          hashtags?: string[]
           id?: string
           scheduled_date?: string | null
           status?: string
