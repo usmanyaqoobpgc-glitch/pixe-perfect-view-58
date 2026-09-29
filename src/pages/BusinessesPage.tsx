@@ -5,7 +5,7 @@ import { generateBusinessPlan } from '@/lib/ai-planner.functions';
 import { useAuth } from '@/lib/auth';
 import { EmptyState, LoadingState, PageHeader, ConfirmDialog } from '@/components/ui';
 import { Link } from '@tanstack/react-router';
-import { Briefcase, Sparkles, ChevronRight, Edit3 } from 'lucide-react';
+import { Briefcase, Sparkles, ChevronRight, Edit3, Trash2 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/format';
 import type { Business, BusinessPlan } from '@/lib/types';
 import { SECTION_LABELS } from '@/lib/types';
@@ -156,7 +156,17 @@ export function BusinessesPage() {
                     <span>{formatCurrency(Number(b.revenue_target))}</span>
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-slate-300" />
+                <ChevronRight className="w-5 h-5 text-slate-300 shrink-0" />
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteTarget(b);
+                  }}
+                  className="shrink-0 p-1.5 rounded-md text-slate-400 hover:text-error-600 hover:bg-error-50 dark:hover:bg-error-500/10 transition-colors"
+                  aria-label={`Delete ${b.name}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
           );
@@ -166,7 +176,11 @@ export function BusinessesPage() {
       <ConfirmDialog
         open={!!deleteTarget}
         title="Delete Business"
-        message="This will permanently delete the business and all its plans, tasks, leads, and data. This cannot be undone."
+        message={
+          deleteTarget
+            ? `This will permanently delete "${deleteTarget.name}" and all its plans, tasks, leads, and data. This cannot be undone.`
+            : ''
+        }
         confirmLabel="Delete"
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
