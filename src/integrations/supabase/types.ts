@@ -339,11 +339,13 @@ export type Database = {
           available_time_hours_per_week: number | null
           budget: number
           business_model: string | null
+          compliance_notes: string
           country: string | null
           created_at: string
           currency: string
           id: string
           idea: string
+          language: string
           marketing_channels: string[] | null
           name: string
           revenue_target: number
@@ -351,6 +353,7 @@ export type Database = {
           status: string
           target_customer: string | null
           target_deadline: string | null
+          timezone: string
           updated_at: string
           user_id: string
           workspace_type: string
@@ -359,11 +362,13 @@ export type Database = {
           available_time_hours_per_week?: number | null
           budget?: number
           business_model?: string | null
+          compliance_notes?: string
           country?: string | null
           created_at?: string
           currency?: string
           id?: string
           idea: string
+          language?: string
           marketing_channels?: string[] | null
           name?: string
           revenue_target?: number
@@ -371,6 +376,7 @@ export type Database = {
           status?: string
           target_customer?: string | null
           target_deadline?: string | null
+          timezone?: string
           updated_at?: string
           user_id?: string
           workspace_type?: string
@@ -379,11 +385,13 @@ export type Database = {
           available_time_hours_per_week?: number | null
           budget?: number
           business_model?: string | null
+          compliance_notes?: string
           country?: string | null
           created_at?: string
           currency?: string
           id?: string
           idea?: string
+          language?: string
           marketing_channels?: string[] | null
           name?: string
           revenue_target?: number
@@ -391,6 +399,7 @@ export type Database = {
           status?: string
           target_customer?: string | null
           target_deadline?: string | null
+          timezone?: string
           updated_at?: string
           user_id?: string
           workspace_type?: string
