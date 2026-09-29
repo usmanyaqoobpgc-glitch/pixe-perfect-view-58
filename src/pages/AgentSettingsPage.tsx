@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { EmptyState, LoadingState, PageHeader } from '@/components/ui';
-import { Check } from 'lucide-react';
+import { Check, Bot } from 'lucide-react';
 
 const VOICES = ['professional', 'friendly', 'bold', 'luxury', 'playful', 'authoritative', 'warm'];
 const STYLES = ['clear', 'persuasive', 'storytelling', 'data-driven', 'conversational', 'formal'];
@@ -55,7 +55,7 @@ export function AgentSettingsPage() {
   }
 
   if (loading) return <LoadingState />;
-  if (businesses.length === 0) return <EmptyState title="No business yet" description="Create a business first to set your agent's brand voice." />;
+  if (businesses.length === 0) return <EmptyState icon={Bot} title="No business yet" description="Create a business first to set your agent's brand voice." />;
 
   return (
     <div>
