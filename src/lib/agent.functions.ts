@@ -6,7 +6,9 @@ export const planBusinessObjective = createServerFn({ method: "POST" })
   .validator((data: { businessId: string; objective: string }) => data)
   .handler(async ({ data, context }) => {
     const { planObjective } = await import("./agent.server");
-    return planObjective(context.supabase, context.userId, data.businessId, data.objective);
+    const b = await import("./brand-style.server");
+    const style = await b.loadBrandStyle(context.supabase, data.businessId);
+    return b.withBrandStyle(style, () => planObjective(context.supabase, context.userId, data.businessId, data.objective));
   });
 
 export const getAgentDashboard = createServerFn({ method: "POST" })
@@ -29,7 +31,9 @@ export const executeAgentTask = createServerFn({ method: "POST" })
   .validator((data: { taskId: string }) => data)
   .handler(async ({ data, context }) => {
     const { runTask } = await import("./agent.server");
-    return runTask(context.supabase, context.userId, data.taskId);
+    const b = await import("./brand-style.server");
+    const style = await b.loadBrandStyleForTask(context.supabase, data.taskId);
+    return b.withBrandStyle(style, () => runTask(context.supabase, context.userId, data.taskId));
   });
 
 export const approveAgentTask = createServerFn({ method: "POST" })
@@ -54,4 +58,17 @@ export const setBusinessAgentStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { setAgentStatus } = await import("./agent.server");
     return setAgentStatus(context.supabase, context.userId, data.agentId, data.status);
+  });
+
+export const chatWithAgent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: { businessId: string; mode: "chat" | "document"; messages: { role: "user" | "assistant"; content: string }[] }) => {
+    if (!data?.businessId || !Array.isArray(data.messages) || data.messages.length === 0) throw new Error("Invalid request");
+    return { businessId: String(data.businessId), mode: data.mode === "document" ? "document" : "chat", messages: data.messages.slice(-20).map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content ?? "").slice(0, 8000) })) } as { businessId: string; mode: "chat" | "document"; messages: { role: "user" | "assistant"; content: string }[] };
+  })
+  .handler(async ({ data, context }) => {
+    const { agentChat } = await import("./agent.server");
+    const b = await import("./brand-style.server");
+    const style = await b.loadBrandStyle(context.supabase, data.businessId);
+    return b.withBrandStyle(style, () => agentChat(context.supabase, context.userId, data.businessId, data.messages, data.mode));
   });

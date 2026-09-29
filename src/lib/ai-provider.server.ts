@@ -2,8 +2,8 @@
  * Shared server-only AI provider abstraction.
  *
  * Resolution order per call:
- *  1. GEMINI_API_KEY (direct Google Gemini call, free tier) — preferred when configured.
- *  2. LOVABLE_API_KEY (Lovable AI gateway) — used only if Gemini is not configured.
+ *  1. LOVABLE_API_KEY (Lovable AI gateway, paid, no free-tier quota) — preferred.
+ *  2. GEMINI_API_KEY (direct Google Gemini call) — used only if the gateway is not configured.
  *  3. Caller falls back to a template/mock result if neither key is present.
  *
  * Keys are read from process.env inside this module and never returned to the client.
@@ -12,125 +12,137 @@
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent";
 
-const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const LOVABLE_MODEL = "google/gemini-3.8-flash";
+const LOVABLE_RESPONSES_URL = "https://ai.gateway.lovable.dev/v1/responses";
+const LOVABLE_MODEL = "openai/gpt-6-astra";
 
-export type ChatMessage = { role: "system" | "user"; content: string };
+export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 export type AiProviderName = "gemini" | "lovable_ai" | "mock";
 
 export function isAiConfigured(): boolean {
-  return Boolean(process.env["GEMINI_API_KEY"] || process.env["LOVABLE_API_KEY"]);
+  return Boolean(process.env["LOVABLE_API_KEY"] || process.env["GEMINI_API_KEY"]);
 }
 
 export function activeProviderName(): AiProviderName {
-  if (process.env["GEMINI_API_KEY"]) return "gemini";
   if (process.env["LOVABLE_API_KEY"]) return "lovable_ai";
+  if (process.env["GEMINI_API_KEY"]) return "gemini";
   return "mock";
 }
 
-/** Accumulates the assistant message content from an SSE chat-completions stream. */
-async function readStreamedContent(response: Response): Promise<string> {
+/** Accumulates output text from a Responses API SSE stream. */
+async function readResponsesStream(response: Response): Promise<string> {
   const body = response.body;
   if (!body) throw new Error("AI provider returned an empty response body");
-
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   let content = "";
+  let finalText = "";
 
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-
     let index: number;
     while ((index = buffer.indexOf("\n")) !== -1) {
       const line = buffer.slice(0, index).trim();
       buffer = buffer.slice(index + 1);
       if (!line.startsWith("data:")) continue;
       const data = line.slice(5).trim();
-      if (data === "[DONE]") continue;
+      if (!data || data === "[DONE]") continue;
       try {
-        const chunk = JSON.parse(data) as {
-          choices?: { delta?: { content?: string }; message?: { content?: string } }[];
-        };
-        content += chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content ?? "";
-      } catch {
-        // ignore keep-alive / partial frames
+        const evt = JSON.parse(data) as { type?: string; delta?: string; text?: string; response?: { error?: { message?: string } } };
+        if (evt.type === "response.output_text.delta" && typeof evt.delta === "string") content += evt.delta;
+        else if (evt.type === "response.output_text.done" && typeof evt.text === "string") finalText += evt.text;
+        else if (evt.type === "response.failed" || evt.type === "error") {
+          throw new Error(evt.response?.error?.message ?? "AI provider failed");
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message !== "" && !(e instanceof SyntaxError)) throw e;
       }
     }
   }
-
-  return content;
+  return content || finalText;
 }
 
-async function callGemini(messages: ChatMessage[]): Promise<string> {
+async function callGemini(messages: ChatMessage[], json: boolean): Promise<string> {
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
-
   const systemText = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
-  const userText = messages.filter((m) => m.role === "user").map((m) => m.content).join("\n\n");
+  const contents = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
 
   const response = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       systemInstruction: systemText ? { parts: [{ text: systemText }] } : undefined,
-      contents: [{ role: "user", parts: [{ text: userText }] }],
-      generationConfig: { responseMimeType: "application/json" },
+      contents,
+      generationConfig: json ? { responseMimeType: "application/json" } : undefined,
     }),
   });
-
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
     console.error(`[ai-provider] Gemini status ${response.status}: ${detail.slice(0, 300)}`);
     throw new Error(`Gemini returned status ${response.status}`);
   }
-
-  const json = (await response.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+  const out = (await response.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+  const text = out.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
   if (!text) throw new Error("Gemini returned an empty response");
   return text;
 }
 
-async function callLovableGateway(messages: ChatMessage[]): Promise<string> {
+async function callLovableGateway(messages: ChatMessage[], json: boolean): Promise<string> {
   const apiKey = process.env["LOVABLE_API_KEY"];
   if (!apiKey) throw new Error("LOVABLE_API_KEY is not configured");
+  const instructions = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
+  const input = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => ({ role: m.role, content: m.content }));
 
-  const response = await fetch(LOVABLE_GATEWAY_URL, {
+  const response = await fetch(LOVABLE_RESPONSES_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+      "X-Lovable-AIG-SDK": "fetch",
+    },
     body: JSON.stringify({
       model: LOVABLE_MODEL,
-      messages,
-      response_format: { type: "json_object" },
+      instructions: instructions || undefined,
+      input,
       stream: true,
+      store: false,
+      reasoning: { effort: "low" },
+      ...(json ? { text: { format: { type: "json_object" } } } : {}),
     }),
   });
-
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
     console.error(`[ai-provider] Lovable gateway status ${response.status}: ${detail.slice(0, 300)}`);
     throw new Error(`AI gateway returned status ${response.status}`);
   }
-
-  return readStreamedContent(response);
+  const text = await readResponsesStream(response);
+  if (!text) throw new Error("The AI returned an empty response");
+  return text;
 }
 
-/**
- * Calls the configured AI provider and returns parsed JSON.
- * Prefers GEMINI_API_KEY; falls back to the Lovable gateway if Gemini is not configured.
- * Throws if neither is configured or the response cannot be parsed as JSON.
- */
-export async function chatJSON<T>(messages: ChatMessage[]): Promise<{ data: T; provider: AiProviderName }> {
+async function call(messages: ChatMessage[], json: boolean): Promise<{ text: string; provider: AiProviderName }> {
   const provider = activeProviderName();
   if (provider === "mock") throw new Error("AI provider is not configured");
+  const text = provider === "lovable_ai" ? await callLovableGateway(messages, json) : await callGemini(messages, json);
+  return { text, provider };
+}
 
-  const content = provider === "gemini" ? await callGemini(messages) : await callLovableGateway(messages);
+/** Free-form text (markdown) answer. */
+export async function chatText(messages: ChatMessage[]): Promise<{ text: string; provider: AiProviderName }> {
+  return call(messages, false);
+}
 
-  const cleaned = content.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "");
+/** Calls the configured AI provider and returns parsed JSON. */
+export async function chatJSON<T>(messages: ChatMessage[]): Promise<{ data: T; provider: AiProviderName }> {
+  const { text, provider } = await call(messages, true);
+  const cleaned = text.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "");
   const match = cleaned.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("The AI returned an unreadable response.");
   try {

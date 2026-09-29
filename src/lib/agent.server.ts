@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
 
 import { chatJSON as callAiProvider, isAiConfigured, activeProviderName, type ChatMessage, type AiProviderName } from "./ai-provider.server";
+import { brandInstruction, currentBrandStyle } from "./brand-style.server";
 
 /**
  * Server-only AI Business Agent core (orchestrator + specialist execution).
@@ -724,8 +725,43 @@ function aiConfigured(): boolean {
 
 /** Calls the configured AI provider (Gemini preferred, Lovable gateway fallback) and returns parsed JSON. */
 async function chatJSON<T>(messages: ChatMessage[]): Promise<T> {
-  const { data } = await callAiProvider<T>(messages);
+  const brand = brandInstruction(currentBrandStyle());
+  const withBrand: ChatMessage[] = brand ? [...messages, { role: "system", content: brand }] : messages;
+  const { data } = await callAiProvider<T>(withBrand);
   return data;
+}
+
+/** Free-form agent chat: answers questions and writes documents using business context + brand voice. */
+export async function agentChat(
+  supabase: DB,
+  userId: string,
+  businessId: string,
+  history: { role: "user" | "assistant"; content: string }[],
+  mode: "chat" | "document",
+) {
+  const business = await assertBusinessOwned(supabase, userId, businessId);
+  const style = currentBrandStyle();
+  const trimmed = history.slice(-20).map((m) => ({ role: m.role, content: String(m.content).slice(0, 8000) }));
+  if (!isAiConfigured()) {
+    return { reply: "The AI provider isn't configured yet, so I can't answer right now.", provider: "mock" as AiProviderName };
+  }
+  const { chatText } = await import("./ai-provider.server");
+  const system = [
+    `You are the Business Agent for this business. You answer the owner's questions and write complete documents for them.`,
+    describeBusiness(business as unknown as BusinessRow),
+    mode === "document"
+      ? "The owner wants a finished document. Write the complete document in Markdown with a title, headings and ready-to-use content. No preamble."
+      : "Answer directly and helpfully in Markdown. Ask a short clarifying question only if truly necessary.",
+    "You only advise and draft. You never claim to have sent, published, bought or deleted anything.",
+    brandInstruction(style),
+  ].filter(Boolean).join("\n\n");
+  try {
+    const { text, provider } = await chatText([{ role: "system", content: system }, ...trimmed]);
+    await logActivity(supabase, { businessId, userId, agentId: null, action: mode === "document" ? "document_written" : "chat_answered", status: "completed", metadata: { provider } }).catch(() => {});
+    return { reply: text, provider };
+  } catch (err) {
+    throw new Error(userSafeError(err));
+  }
 }
 
 export async function planObjective(supabase: DB, userId: string, businessId: string, objectiveInput: string) {

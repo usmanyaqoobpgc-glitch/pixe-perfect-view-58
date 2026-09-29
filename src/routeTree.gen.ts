@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AgentSettingsRouteImport } from './routes/agent-settings'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as ApprovalsRouteImport } from './routes/approvals'
@@ -37,6 +38,11 @@ const IndexRoute = IndexRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentSettingsRoute = AgentSettingsRouteImport.update({
+  id: '/agent-settings',
+  path: '/agent-settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgentsRoute = AgentsRouteImport.update({
@@ -128,6 +134,7 @@ const WebsiteBuilderRoute = WebsiteBuilderRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/agent-settings': typeof AgentSettingsRoute
   '/agents': typeof AgentsRoute
   '/analytics': typeof AnalyticsRoute
   '/approvals': typeof ApprovalsRoute
@@ -149,6 +156,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/agent-settings': typeof AgentSettingsRoute
   '/agents': typeof AgentsRoute
   '/analytics': typeof AnalyticsRoute
   '/approvals': typeof ApprovalsRoute
@@ -171,6 +179,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/agent-settings': typeof AgentSettingsRoute
   '/agents': typeof AgentsRoute
   '/analytics': typeof AnalyticsRoute
   '/approvals': typeof ApprovalsRoute
@@ -194,6 +203,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/agent-settings'
     | '/agents'
     | '/analytics'
     | '/approvals'
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
+    | '/agent-settings'
     | '/agents'
     | '/analytics'
     | '/approvals'
@@ -236,6 +247,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/agent-settings'
     | '/agents'
     | '/analytics'
     | '/approvals'
@@ -258,6 +270,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  AgentSettingsRoute: typeof AgentSettingsRoute
   AgentsRoute: typeof AgentsRoute
   AnalyticsRoute: typeof AnalyticsRoute
   ApprovalsRoute: typeof ApprovalsRoute
@@ -291,6 +304,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agent-settings': {
+      id: '/agent-settings'
+      path: '/agent-settings'
+      fullPath: '/agent-settings'
+      preLoaderRoute: typeof AgentSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agents': {
@@ -418,6 +438,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  AgentSettingsRoute: AgentSettingsRoute,
   AgentsRoute: AgentsRoute,
   AnalyticsRoute: AnalyticsRoute,
   ApprovalsRoute: ApprovalsRoute,
