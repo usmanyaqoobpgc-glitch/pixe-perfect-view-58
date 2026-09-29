@@ -251,6 +251,7 @@ export type Database = {
       }
       business_agents: {
         Row: {
+          brand_notes: string
           business_id: string
           created_at: string
           id: string
@@ -258,11 +259,15 @@ export type Database = {
           last_error: string | null
           name: string
           objective: string | null
+          response_length: string
           status: string
           updated_at: string
           user_id: string
+          voice: string
+          writing_style: string
         }
         Insert: {
+          brand_notes?: string
           business_id: string
           created_at?: string
           id?: string
@@ -270,11 +275,15 @@ export type Database = {
           last_error?: string | null
           name?: string
           objective?: string | null
+          response_length?: string
           status?: string
           updated_at?: string
           user_id: string
+          voice?: string
+          writing_style?: string
         }
         Update: {
+          brand_notes?: string
           business_id?: string
           created_at?: string
           id?: string
@@ -282,9 +291,12 @@ export type Database = {
           last_error?: string | null
           name?: string
           objective?: string | null
+          response_length?: string
           status?: string
           updated_at?: string
           user_id?: string
+          voice?: string
+          writing_style?: string
         }
         Relationships: [
           {
