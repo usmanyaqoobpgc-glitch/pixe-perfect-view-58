@@ -739,9 +739,7 @@ export async function agentChat(
   history: { role: "user" | "assistant"; content: string }[],
   mode: "chat" | "document",
 ) {
-  await assertBusinessOwned(supabase, userId, businessId);
-  const { data: business } = await supabase.from("businesses").select("*").eq("id", businessId).maybeSingle();
-  if (!business) throw new Error("Business not found.");
+  const business = await assertBusinessOwned(supabase, userId, businessId);
   const style = currentBrandStyle();
   const trimmed = history.slice(-20).map((m) => ({ role: m.role, content: String(m.content).slice(0, 8000) }));
   if (!isAiConfigured()) {
@@ -750,7 +748,7 @@ export async function agentChat(
   const { chatText } = await import("./ai-provider.server");
   const system = [
     `You are the Business Agent for this business. You answer the owner's questions and write complete documents for them.`,
-    describeBusiness(business as BusinessRow),
+    describeBusiness(business as unknown as BusinessRow),
     mode === "document"
       ? "The owner wants a finished document. Write the complete document in Markdown with a title, headings and ready-to-use content. No preamble."
       : "Answer directly and helpfully in Markdown. Ask a short clarifying question only if truly necessary.",
@@ -759,7 +757,7 @@ export async function agentChat(
   ].filter(Boolean).join("\n\n");
   try {
     const { text, provider } = await chatText([{ role: "system", content: system }, ...trimmed]);
-    await logActivity(supabase, { businessId, userId, action: mode === "document" ? "document_written" : "chat_answered", status: "completed", metadata: { provider } } as never).catch(() => {});
+    await logActivity(supabase, { businessId, userId, agentId: null, action: mode === "document" ? "document_written" : "chat_answered", status: "completed", metadata: { provider } }).catch(() => {});
     return { reply: text, provider };
   } catch (err) {
     throw new Error(userSafeError(err));
