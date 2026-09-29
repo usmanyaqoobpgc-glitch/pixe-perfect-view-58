@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { Business } from '@/lib/types';
 import { PENDING_OBJECTIVE_KEY } from '@/components/CommandBar';
+import { AgentChat } from '@/components/AgentChat';
 
 const AGENTS = [
   { type: 'market_research', name: 'Market Research Agent', icon: Search, description: 'Researches and summarizes market opportunities for your business idea.', permissions: ['Read: business data', 'Read: market context'] },
@@ -486,6 +487,8 @@ export function AgentsPage() {
           ) : undefined
         }
       />
+
+      {businessId && <AgentChat businessId={businessId} />}
 
       {/* Business Agent control panel */}
       <div className="card p-5 mb-6">

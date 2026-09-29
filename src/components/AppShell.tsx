@@ -32,6 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { section: 'growth', label: 'Tasks', path: '/tasks', icon: CheckSquare },
   { section: 'analytics', label: 'Revenue & Analytics', path: '/analytics', icon: BarChart3 },
   { section: 'system', label: 'AI Agents', path: '/agents', icon: Bot },
+  { section: 'system', label: 'Agent Settings', path: '/agent-settings', icon: Settings },
   { section: 'system', label: 'Pending Approvals', path: '/approvals', icon: CheckCircle2 },
   { section: 'system', label: 'Notifications', path: '/notifications', icon: Bell },
   { section: 'system', label: 'Security Center', path: '/security', icon: Shield },
