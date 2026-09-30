@@ -1,9 +1,34 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+const id = z.string().uuid("Invalid id");
+
+const planObjectiveSchema = z.object({
+  businessId: id,
+  objective: z.string().trim().min(1, "Please enter an objective.").max(500),
+});
+const businessSchema = z.object({ businessId: id });
+const taskSchema = z.object({ taskId: id });
+const approveSchema = z.object({ taskId: id, approve: z.boolean() });
+const agentStatusSchema = z.object({ agentId: id, status: z.enum(["active", "paused"]) });
+const chatSchema = z.object({
+  businessId: id,
+  mode: z.enum(["chat", "document"]).default("chat"),
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().max(8000),
+      }),
+    )
+    .min(1)
+    .transform((m) => m.slice(-20)),
+});
 
 export const planBusinessObjective = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data: { businessId: string; objective: string }) => data)
+  .validator((data: unknown) => planObjectiveSchema.parse(data))
   .handler(async ({ data, context }) => {
     const { planObjective } = await import("./agent.server");
     const b = await import("./brand-style.server");
@@ -13,7 +38,7 @@ export const planBusinessObjective = createServerFn({ method: "POST" })
 
 export const getAgentDashboard = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data: { businessId: string }) => data)
+  .validator((data: unknown) => businessSchema.parse(data))
   .handler(async ({ data, context }) => {
     const { getDashboard } = await import("./agent.server");
     return getDashboard(context.supabase, context.userId, data.businessId);
@@ -28,7 +53,7 @@ export const getPendingApprovals = createServerFn({ method: "POST" })
 
 export const executeAgentTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data: { taskId: string }) => data)
+  .validator((data: unknown) => taskSchema.parse(data))
   .handler(async ({ data, context }) => {
     const { runTask } = await import("./agent.server");
     const b = await import("./brand-style.server");
@@ -38,7 +63,7 @@ export const executeAgentTask = createServerFn({ method: "POST" })
 
 export const approveAgentTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data: { taskId: string; approve: boolean }) => data)
+  .validator((data: unknown) => approveSchema.parse(data))
   .handler(async ({ data, context }) => {
     const { decideApproval } = await import("./agent.server");
     return decideApproval(context.supabase, context.userId, data.taskId, data.approve);
@@ -46,7 +71,7 @@ export const approveAgentTask = createServerFn({ method: "POST" })
 
 export const cancelAgentTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data: { taskId: string }) => data)
+  .validator((data: unknown) => taskSchema.parse(data))
   .handler(async ({ data, context }) => {
     const { cancelTask } = await import("./agent.server");
     return cancelTask(context.supabase, context.userId, data.taskId);
@@ -54,7 +79,7 @@ export const cancelAgentTask = createServerFn({ method: "POST" })
 
 export const setBusinessAgentStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data: { agentId: string; status: "active" | "paused" }) => data)
+  .validator((data: unknown) => agentStatusSchema.parse(data))
   .handler(async ({ data, context }) => {
     const { setAgentStatus } = await import("./agent.server");
     return setAgentStatus(context.supabase, context.userId, data.agentId, data.status);
@@ -62,10 +87,7 @@ export const setBusinessAgentStatus = createServerFn({ method: "POST" })
 
 export const chatWithAgent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((data: { businessId: string; mode: "chat" | "document"; messages: { role: "user" | "assistant"; content: string }[] }) => {
-    if (!data?.businessId || !Array.isArray(data.messages) || data.messages.length === 0) throw new Error("Invalid request");
-    return { businessId: String(data.businessId), mode: data.mode === "document" ? "document" : "chat", messages: data.messages.slice(-20).map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content ?? "").slice(0, 8000) })) } as { businessId: string; mode: "chat" | "document"; messages: { role: "user" | "assistant"; content: string }[] };
-  })
+  .validator((data: unknown) => chatSchema.parse(data))
   .handler(async ({ data, context }) => {
     const { agentChat } = await import("./agent.server");
     const b = await import("./brand-style.server");
