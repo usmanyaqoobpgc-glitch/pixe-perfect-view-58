@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { LoadingState, PageHeader, ConfirmDialog } from '@/components/ui';
 import {
-  ShieldCheck, Users, ScrollText, Search, ShieldAlert, CheckCircle2,
+  ShieldCheck, Users, ScrollText, Search, ShieldAlert, CheckCircle2, Database,
 } from 'lucide-react';
 import { formatRelativeTime } from '@/lib/format';
 
@@ -28,10 +28,16 @@ interface AuditLogEntry {
   created_at: string;
 }
 
-type Tab = 'users' | 'audit';
+type Tab = 'users' | 'audit' | 'data';
+
+const DATA_TABLES = [
+  'businesses', 'leads', 'customers', 'revenue_records', 'business_plans', 'milestones',
+  'tasks', 'marketing_content', 'website_drafts', 'business_agents', 'agent_tasks',
+  'agent_activity_log', 'ai_agent_runs', 'notifications',
+] as const;
 
 export function AdminPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [tab, setTab] = useState<Tab>('users');
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<StaffUser[]>([]);
@@ -40,6 +46,33 @@ export function AdminPage() {
   const [roleConfirm, setRoleConfirm] = useState<{ userId: string; email: string; newRole: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [dataUserId, setDataUserId] = useState<string>('');
+  const [counts, setCounts] = useState<Record<string, number | null>>({});
+  const isAdmin = profile?.role === 'admin';
+
+  const loadCounts = useCallback(async (userId: string) => {
+    const { data: biz } = await supabase.from('businesses').select('id').eq('user_id', userId);
+    const bizIds = (biz ?? []).map((b) => b.id);
+    const byBusiness = async (t: 'leads' | 'customers' | 'revenue_records' | 'business_plans' | 'milestones' | 'tasks' | 'marketing_content' | 'website_drafts') => {
+      if (bizIds.length === 0) return 0;
+      const { count, error } = await supabase.from(t).select('*', { count: 'exact', head: true }).in('business_id', bizIds);
+      return error ? null : count ?? 0;
+    };
+    const byUser = async (t: 'business_agents' | 'agent_tasks' | 'agent_activity_log' | 'ai_agent_runs' | 'notifications') => {
+      const { count, error } = await supabase.from(t).select('*', { count: 'exact', head: true }).eq('user_id', userId);
+      return error ? null : count ?? 0;
+    };
+    const result: Record<string, number | null> = { businesses: bizIds.length };
+    await Promise.all([
+      ...(['leads', 'customers', 'revenue_records', 'business_plans', 'milestones', 'tasks', 'marketing_content', 'website_drafts'] as const).map(
+        async (t) => { result[t] = await byBusiness(t); },
+      ),
+      ...(['business_agents', 'agent_tasks', 'agent_activity_log', 'ai_agent_runs', 'notifications'] as const).map(
+        async (t) => { result[t] = await byUser(t); },
+      ),
+    ]);
+    setCounts(result);
+  }, []);
 
   const loadUsers = useCallback(async () => {
     const { data, error } = await supabase.rpc('staff_list_users');
@@ -60,10 +93,11 @@ export function AdminPage() {
   }, []);
 
   useEffect(() => {
+    if (!isAdmin) return;
     async function load() {
       setLoading(true);
       setActionError(null);
-      if (tab === 'users') {
+      if (tab === 'users' || tab === 'data') {
         await loadUsers();
       } else {
         await loadAuditLogs();
@@ -71,7 +105,7 @@ export function AdminPage() {
       setLoading(false);
     }
     load();
-  }, [tab, loadUsers, loadAuditLogs]);
+  }, [tab, isAdmin, loadUsers, loadAuditLogs]);
 
   const handleRoleChange = async () => {
     if (!roleConfirm) return;
@@ -96,7 +130,14 @@ export function AdminPage() {
       (u.full_name ?? '').toLowerCase().includes(search.toLowerCase()),
   );
 
-  if (loading) return <LoadingState />;
+  if (profile && !isAdmin) {
+    return (
+      <div className="card p-8 text-center text-sm text-slate-500">
+        Access denied. This page is for administrators only.
+      </div>
+    );
+  }
+  if (loading || !profile) return <LoadingState />;
 
   return (
     <div>
@@ -114,7 +155,7 @@ export function AdminPage() {
       )}
 
       {/* Tab switcher */}
-      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg mb-6 max-w-xs">
+      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg mb-6 max-w-md">
         <button
           onClick={() => setTab('users')}
           className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition ${tab === 'users' ? 'bg-white dark:bg-slate-900 text-primary-600 shadow-sm' : 'text-slate-500'}`}
@@ -127,7 +168,39 @@ export function AdminPage() {
         >
           <ScrollText className="w-4 h-4" /> Audit Log
         </button>
+        <button
+          onClick={() => setTab('data')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition ${tab === 'data' ? 'bg-white dark:bg-slate-900 text-primary-600 shadow-sm' : 'text-slate-500'}`}
+        >
+          <Database className="w-4 h-4" /> User Data
+        </button>
       </div>
+
+      {tab === 'data' && (
+        <div className="card p-5">
+          <h3 className="font-semibold text-slate-900 dark:text-white mb-4">User Data (admin only)</h3>
+          <select
+            value={dataUserId}
+            onChange={(e) => { setDataUserId(e.target.value); if (e.target.value) void loadCounts(e.target.value); }}
+            className="input text-sm max-w-sm mb-4"
+          >
+            <option value="">Select a user...</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>{u.full_name || u.email} ({u.email})</option>
+            ))}
+          </select>
+          {dataUserId && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {DATA_TABLES.map((t) => (
+                <div key={t} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                  <p className="text-xs text-slate-400">{t.replace(/_/g, ' ')}</p>
+                  <p className="text-lg font-semibold text-slate-900 dark:text-white">{counts[t] ?? '—'}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {tab === 'users' && (
         <div className="card p-5">
