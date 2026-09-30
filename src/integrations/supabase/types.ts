@@ -852,6 +852,8 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_get_overview: { Args: never; Returns: Json }
+      admin_get_user_data: { Args: { p_user_id: string }; Returns: Json }
       admin_update_user_role: {
         Args: { p_role: string; p_user_id: string }
         Returns: undefined
