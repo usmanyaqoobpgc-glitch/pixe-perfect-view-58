@@ -45,55 +45,79 @@ export interface SubscriptionState {
   cancelAtPeriodEnd: boolean;
 }
 
-export async function checkSubscription(email: string): Promise<SubscriptionState> {
-  const stripe = getStripe();
+// Statuses that still entitle the user to their paid plan.
+const LIVE_STATUSES = new Set<string>(["active", "trialing", "past_due"]);
+// Statuses the `subscriptions.status` CHECK constraint accepts.
+type DbStatus = "active" | "trialing" | "past_due" | "canceled" | "incomplete";
+
+const FREE_STATE: SubscriptionState = {
+  subscribed: false,
+  plan: "free",
+  planName: "Free",
+  subscriptionEnd: null,
+  cancelAtPeriodEnd: false,
+};
+
+interface Loaded {
+  state: SubscriptionState;
+  customerId: string | null;
+  subscriptionId: string | null;
+  dbStatus: DbStatus;
+}
+
+// One customer lookup + one subscription list per call (no duplicate Stripe requests).
+async function loadSubscription(stripe: Stripe, email: string): Promise<Loaded> {
   const customerId = await findCustomerByEmail(stripe, email);
-  if (!customerId) {
-    return { subscribed: false, plan: "free", planName: "Free", subscriptionEnd: null, cancelAtPeriodEnd: false };
+  if (!customerId) return { state: FREE_STATE, customerId: null, subscriptionId: null, dbStatus: "active" };
+
+  const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 10 });
+  const live = subs.data.find((s) => LIVE_STATUSES.has(s.status));
+  if (!live) {
+    const hadPaid = subs.data.some((s) => s.status === "canceled");
+    return { state: FREE_STATE, customerId, subscriptionId: null, dbStatus: hadPaid ? "canceled" : "active" };
   }
-  const subs = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 });
-  const sub = subs.data[0];
-  if (!sub) {
-    return { subscribed: false, plan: "free", planName: "Free", subscriptionEnd: null, cancelAtPeriodEnd: false };
-  }
-  const item = sub.items.data[0];
+
+  const item = live.items.data[0];
   const productId = typeof item?.price.product === "string" ? item.price.product : item?.price.product?.id;
   const plan = planFromProductId(productId);
   const periodEnd = (item as unknown as { current_period_end?: number })?.current_period_end;
   return {
-    subscribed: true,
-    plan: plan ?? "free",
-    planName: plan ? PLANS[plan].name : "Free",
-    subscriptionEnd: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
-    cancelAtPeriodEnd: sub.cancel_at_period_end,
+    state: {
+      subscribed: true,
+      plan: plan ?? "free",
+      planName: plan ? PLANS[plan].name : "Free",
+      subscriptionEnd: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+      cancelAtPeriodEnd: live.cancel_at_period_end,
+    },
+    customerId,
+    subscriptionId: live.id,
+    dbStatus: live.status as DbStatus,
   };
+}
+
+export async function checkSubscription(email: string): Promise<SubscriptionState> {
+  return (await loadSubscription(getStripe(), email)).state;
 }
 
 // Persists the current Stripe state into the subscriptions table (service role; RLS denies user writes).
 export async function syncSubscriptionRow(userId: string, email: string): Promise<SubscriptionState> {
-  const state = await checkSubscription(email);
-  const stripe = getStripe();
-  const customerId = await findCustomerByEmail(stripe, email);
+  const loaded = await loadSubscription(getStripe(), email);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const subs = customerId
-    ? await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 })
-    : { data: [] as Stripe.Subscription[] };
-  const sub = subs.data[0];
   const { error } = await supabaseAdmin.from("subscriptions").upsert(
     {
       user_id: userId,
-      plan: state.plan,
-      status: state.subscribed ? (state.cancelAtPeriodEnd ? "cancelling" : "active") : "free",
-      stripe_customer_id: customerId,
-      stripe_subscription_id: sub?.id ?? null,
-      current_period_end: state.subscriptionEnd,
-      cancel_at_period_end: state.cancelAtPeriodEnd,
+      plan: loaded.state.plan,
+      status: loaded.dbStatus,
+      stripe_customer_id: loaded.customerId,
+      stripe_subscription_id: loaded.subscriptionId,
+      current_period_end: loaded.state.subscriptionEnd,
+      cancel_at_period_end: loaded.state.cancelAtPeriodEnd,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" },
   );
   if (error) console.error("[billing] subscription sync failed:", error.message);
-  return state;
+  return loaded.state;
 }
 
 export async function createCheckoutSession(opts: {

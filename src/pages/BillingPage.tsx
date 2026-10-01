@@ -39,6 +39,17 @@ function formatMoney(cents: number, currency: string) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
 }
 
+
+// Stripe pages can't load inside an iframe (e.g. the editor preview), so open a new tab there.
+// On the real site, redirect in the same tab: popup blockers often block window.open after an async call.
+function goToStripe(url: string) {
+  if (window.self !== window.top) {
+    window.open(url, '_blank', 'noopener');
+  } else {
+    window.location.assign(url);
+  }
+}
+
 export function BillingPage() {
   const queryClient = useQueryClient();
   const search = useSearch({ strict: false }) as { checkout?: string };
@@ -81,7 +92,7 @@ export function BillingPage() {
     setActionError(null);
     try {
       const { url } = await startCheckout({ data: { plan, origin: window.location.origin } });
-      window.open(url, '_blank', 'noopener');
+      goToStripe(url);
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'Could not start checkout.');
     } finally {
@@ -94,7 +105,7 @@ export function BillingPage() {
     setActionError(null);
     try {
       const { url } = await startPortal({ data: { origin: window.location.origin } });
-      window.open(url, '_blank', 'noopener');
+      goToStripe(url);
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'Could not open the billing portal.');
     } finally {
