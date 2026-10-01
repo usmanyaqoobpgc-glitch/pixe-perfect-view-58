@@ -53,11 +53,11 @@ export function BillingPage() {
 
   const stateQuery = useQuery({
     queryKey: ['subscription-state'],
-    queryFn: () => fetchState({ data: {} }),
+    queryFn: () => fetchState(),
   });
   const invoicesQuery = useQuery({
     queryKey: ['billing-invoices'],
-    queryFn: () => fetchInvoices({ data: {} }),
+    queryFn: () => fetchInvoices(),
   });
 
   // After returning from Stripe checkout, poll until the subscription shows active.
@@ -117,7 +117,7 @@ export function BillingPage() {
         </div>
       )}
       {actionError && (
-        <div className="mb-6 p-4 rounded-lg bg-danger-50 dark:bg-danger-500/10 text-danger-700 dark:text-danger-400 text-sm">
+        <div className="mb-6 p-4 rounded-lg bg-warning-50 dark:bg-warning-500/10 text-warning-700 dark:text-warning-400 text-sm">
           {actionError}
         </div>
       )}

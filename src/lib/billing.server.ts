@@ -21,7 +21,7 @@ export type PlanKey = keyof typeof PLANS;
 function getStripe(): Stripe {
   const key = process.env["STRIPE_SECRET_KEY"];
   if (!key) throw new Error("Payments are not configured yet.");
-  return new Stripe(key, { apiVersion: "2025-08-27.basil" });
+  return new Stripe(key);
 }
 
 function planFromProductId(productId: string | undefined): PlanKey | null {
@@ -59,11 +59,12 @@ export async function checkSubscription(email: string): Promise<SubscriptionStat
   const item = sub.items.data[0];
   const productId = typeof item?.price.product === "string" ? item.price.product : item?.price.product?.id;
   const plan = planFromProductId(productId);
+  const periodEnd = (item as unknown as { current_period_end?: number })?.current_period_end;
   return {
     subscribed: true,
     plan: plan ?? "free",
     planName: plan ? PLANS[plan].name : "Free",
-    subscriptionEnd: new Date(sub.current_period_end * 1000).toISOString(),
+    subscriptionEnd: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
     cancelAtPeriodEnd: sub.cancel_at_period_end,
   };
 }
