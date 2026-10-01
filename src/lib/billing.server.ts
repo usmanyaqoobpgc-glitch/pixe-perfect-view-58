@@ -4,13 +4,11 @@ import Stripe from "stripe";
 export const PLANS = {
   pro: {
     name: "Pro",
-    priceId: "price_1ULbzH1kHi27baPIX5sH219J",
     productId: "prod_VMKeZUiRjfduWW",
     amount: 2900,
   },
   business: {
     name: "Business",
-    priceId: "price_1ULbzL1kHi27baPIhEbHDMJ7",
     productId: "prod_VMKep55ElanvI5",
     amount: 9900,
   },
@@ -79,7 +77,9 @@ async function loadSubscription(stripe: Stripe, email: string): Promise<Loaded> 
 
   const item = live.items.data[0];
   const productId = typeof item?.price.product === "string" ? item.price.product : item?.price.product?.id;
-  const plan = planFromProductId(productId);
+  const metaPlan = live.metadata?.plan;
+  const plan: PlanKey | null =
+    metaPlan === "pro" || metaPlan === "business" ? metaPlan : planFromProductId(productId);
   const periodEnd = (item as unknown as { current_period_end?: number })?.current_period_end;
   return {
     state: {
@@ -132,8 +132,19 @@ export async function createCheckoutSession(opts: {
   const session = await stripe.checkout.sessions.create({
     customer: customerId ?? undefined,
     customer_email: customerId ? undefined : opts.email,
-    line_items: [{ price: plan.priceId, quantity: 1 }],
+    line_items: [
+      {
+        price_data: {
+          currency: "usd",
+          unit_amount: plan.amount,
+          recurring: { interval: "month" },
+          product_data: { name: `${plan.name} plan` },
+        },
+        quantity: 1,
+      },
+    ],
     mode: "subscription",
+    subscription_data: { metadata: { plan: opts.plan } },
     payment_method_types: ["card"],
     success_url: `${opts.origin}/billing?checkout=success`,
     cancel_url: `${opts.origin}/billing?checkout=cancelled`,
