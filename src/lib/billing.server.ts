@@ -134,6 +134,7 @@ export async function createCheckoutSession(opts: {
     customer_email: customerId ? undefined : opts.email,
     line_items: [{ price: plan.priceId, quantity: 1 }],
     mode: "subscription",
+    payment_method_types: ["card"],
     success_url: `${opts.origin}/billing?checkout=success`,
     cancel_url: `${opts.origin}/billing?checkout=cancelled`,
   });
