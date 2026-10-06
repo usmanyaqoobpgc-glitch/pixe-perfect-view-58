@@ -16,8 +16,26 @@ export const PLANS = {
 
 export type PlanKey = keyof typeof PLANS;
 
-function getStripe(): Stripe {
-  const key = process.env["STRIPE_SECRET_KEY"];
+// Key lookup: the locked `app_secrets` table (service role only) first, then the STRIPE_SECRET_KEY env var.
+async function getStripe(): Promise<Stripe> {
+  let key: string | undefined;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = supabaseAdmin as unknown as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (c: string, v: string) => {
+            maybeSingle: () => Promise<{ data: { value?: string } | null }>;
+          };
+        };
+      };
+    };
+    const { data } = await db.from("app_secrets").select("value").eq("name", "STRIPE_SECRET_KEY").maybeSingle();
+    key = data?.value || undefined;
+  } catch {
+    key = undefined;
+  }
+  key = key || process.env["STRIPE_SECRET_KEY"];
   if (!key) throw new Error("Payments are not configured yet.");
   return new Stripe(key);
 }
@@ -96,12 +114,12 @@ async function loadSubscription(stripe: Stripe, email: string): Promise<Loaded> 
 }
 
 export async function checkSubscription(email: string): Promise<SubscriptionState> {
-  return (await loadSubscription(getStripe(), email)).state;
+  return (await loadSubscription(await getStripe(), email)).state;
 }
 
 // Persists the current Stripe state into the subscriptions table (service role; RLS denies user writes).
 export async function syncSubscriptionRow(userId: string, email: string): Promise<SubscriptionState> {
-  const loaded = await loadSubscription(getStripe(), email);
+  const loaded = await loadSubscription(await getStripe(), email);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { error } = await supabaseAdmin.from("subscriptions").upsert(
     {
@@ -125,7 +143,7 @@ export async function createCheckoutSession(opts: {
   plan: PlanKey;
   origin: string;
 }): Promise<string> {
-  const stripe = getStripe();
+  const stripe = await getStripe();
   const plan = PLANS[opts.plan];
   if (!plan) throw new Error("Unknown plan.");
   const customerId = await findCustomerByEmail(stripe, opts.email);
@@ -154,7 +172,7 @@ export async function createCheckoutSession(opts: {
 }
 
 export async function createPortalSession(email: string, origin: string): Promise<string> {
-  const stripe = getStripe();
+  const stripe = await getStripe();
   const customerId = await findCustomerByEmail(stripe, email);
   if (!customerId) throw new Error("No Stripe customer found for this account yet.");
   const session = await stripe.billingPortal.sessions.create({
@@ -175,7 +193,7 @@ export interface InvoiceRow {
 }
 
 export async function listInvoices(email: string): Promise<InvoiceRow[]> {
-  const stripe = getStripe();
+  const stripe = await getStripe();
   const customerId = await findCustomerByEmail(stripe, email);
   if (!customerId) return [];
   const invoices = await stripe.invoices.list({ customer: customerId, limit: 24 });
