@@ -3,6 +3,7 @@ import { useServerFn } from '@tanstack/react-start';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearch } from '@tanstack/react-router';
 import { PageHeader } from '@/components/ui';
+import { supabase } from '@/integrations/supabase/client';
 import { CreditCard, Check, Zap, Crown, RefreshCw, ExternalLink, FileText } from 'lucide-react';
 import {
   getSubscriptionState,
@@ -65,6 +66,16 @@ export function BillingPage() {
   const stateQuery = useQuery({
     queryKey: ['subscription-state'],
     queryFn: () => fetchState(),
+  });
+  const salesQuery = useQuery({
+    queryKey: ['billing-sales'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('revenue_records')
+        .select('id, amount, description, category, record_date, businesses(name)')
+        .not('source_type', 'is', null).order('record_date', { ascending: false }).limit(50);
+      if (error) throw error;
+      return data as unknown as { id: string; amount: number; description: string; category: string | null; record_date: string; businesses: { name: string } | null }[];
+    },
   });
   const invoicesQuery = useQuery({
     queryKey: ['billing-invoices'],
@@ -257,6 +268,26 @@ export function BillingPage() {
                     </a>
                   )}
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-3">New customers & deals</h2>
+        {salesQuery.isLoading ? <div className="card p-8 text-center text-sm text-slate-400">Loading…</div>
+        : salesQuery.isError ? <div className="card p-8 text-center text-sm text-error-600">Could not load sales.</div>
+        : (salesQuery.data?.length ?? 0) === 0 ? <div className="card p-8 text-center text-sm text-slate-400">No customers or won deals yet. Add a customer with a value, or mark a lead as converted.</div>
+        : (
+          <div className="card divide-y divide-slate-100 dark:divide-slate-800">
+            {salesQuery.data!.map((r) => (
+              <div key={r.id} className="flex items-center justify-between p-4">
+                <div>
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">{r.description}</p>
+                  <p className="text-xs text-slate-400">{r.businesses?.name ?? ''} · {new Date(r.record_date).toLocaleDateString()} · <span className="capitalize">{r.category}</span></p>
+                </div>
+                <span className="text-sm font-medium text-accent-600">${Number(r.amount).toLocaleString()}</span>
               </div>
             ))}
           </div>
