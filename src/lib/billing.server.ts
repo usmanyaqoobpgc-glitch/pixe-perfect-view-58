@@ -272,7 +272,7 @@ export async function handleStripeWebhook(request: Request): Promise<Response> {
     if (!email) return Response.json({ received: true, ignored: true });
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: profile } = await supabaseAdmin.from("profiles").select("id").ilike("email", email).maybeSingle();
+    const { data: profile } = await supabaseAdmin.from("profiles").select("id").ilike("email", email.replace(/[\\%_]/g, "\\$&")).maybeSingle();
     if (!profile) return Response.json({ received: true, ignored: "no matching user" });
 
     const loaded = await loadByCustomerId(stripe, customerId);
