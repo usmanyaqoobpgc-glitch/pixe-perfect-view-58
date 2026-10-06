@@ -682,6 +682,8 @@ export type Database = {
           id: string
           is_estimate: boolean
           record_date: string
+          source_id: string | null
+          source_type: string | null
           type: string
         }
         Insert: {
@@ -693,6 +695,8 @@ export type Database = {
           id?: string
           is_estimate?: boolean
           record_date?: string
+          source_id?: string | null
+          source_type?: string | null
           type: string
         }
         Update: {
@@ -704,6 +708,8 @@ export type Database = {
           id?: string
           is_estimate?: boolean
           record_date?: string
+          source_id?: string | null
+          source_type?: string | null
           type?: string
         }
         Relationships: [

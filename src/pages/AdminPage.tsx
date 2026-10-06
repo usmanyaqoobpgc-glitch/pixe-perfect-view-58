@@ -8,6 +8,9 @@ import {
   Briefcase, UserPlus, ListTodo, Bot, DollarSign, X, Download,
 } from 'lucide-react';
 import { formatRelativeTime } from '@/lib/format';
+import { useServerFn } from '@tanstack/react-start';
+import { getAdminBilling, type AdminBillingRow, type AdminInvoiceRow } from '@/lib/admin-billing.functions';
+import { CreditCard, FileText } from 'lucide-react';
 
 interface StaffUser {
   id: string;
@@ -44,7 +47,7 @@ const SECTIONS: { key: string; label: string }[] = [
   { key: 'website_drafts', label: 'Website drafts' },
 ];
 
-type Tab = 'overview' | 'users' | 'audit';
+type Tab = 'overview' | 'users' | 'billing' | 'audit';
 
 function cell(v: unknown): string {
   if (v === null || v === undefined) return '';
@@ -149,6 +152,8 @@ export function AdminPage() {
   const [selected, setSelected] = useState<StaffUser | null>(null);
   const [roleConfirm, setRoleConfirm] = useState<{ userId: string; email: string; newRole: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [billing, setBilling] = useState<{ rows: AdminBillingRow[]; invoices: AdminInvoiceRow[]; stripeError: string | null } | null>(null);
+  const fetchBilling = useServerFn(getAdminBilling);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
@@ -166,7 +171,9 @@ export function AdminPage() {
     setLoading(true);
     setActionError(null);
     if (tab === 'users') await loadUsers();
-    else if (tab === 'audit') {
+    else if (tab === 'billing') {
+      try { setBilling(await fetchBilling()); } catch (e) { setActionError(e instanceof Error ? e.message : 'Could not load billing'); }
+    } else if (tab === 'audit') {
       const { data, error } = await supabase.rpc('admin_get_audit_logs', { p_limit: 100 });
       if (error) setActionError(error.message);
       else setAuditLogs(data as AuditLogEntry[]);
@@ -176,7 +183,7 @@ export function AdminPage() {
       else setOverview(data as unknown as Overview);
     }
     setLoading(false);
-  }, [tab, loadUsers]);
+  }, [tab, loadUsers, fetchBilling]);
 
   useEffect(() => {
     if (isAdmin) load();
@@ -234,9 +241,10 @@ export function AdminPage() {
         </div>
       )}
 
-      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg mb-6 max-w-md">
+      <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg mb-6 max-w-xl">
         {tabBtn('overview', 'Overview', LayoutDashboard)}
         {tabBtn('users', 'Users', Users)}
+        {tabBtn('billing', 'Billing', CreditCard)}
         {tabBtn('audit', 'Audit Log', ScrollText)}
       </div>
 
@@ -332,6 +340,54 @@ export function AdminPage() {
               )}
             </div>
           )}
+
+          {tab === 'billing' && billing && (() => {
+            const paid = billing.rows.filter((r) => r.plan !== 'free' && ['active', 'trialing', 'past_due'].includes(r.status));
+            const totalPaid = billing.invoices.reduce((t, i) => t + i.amount_paid, 0) / 100;
+            return (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatCard label="Paying users" value={paid.length} icon={CreditCard} color="accent" />
+                  <StatCard label="Pro" value={paid.filter((r) => r.plan === 'pro').length} icon={Users} />
+                  <StatCard label="Business" value={paid.filter((r) => r.plan === 'business').length} icon={Briefcase} />
+                  <StatCard label="Invoiced (paid)" value={`$${totalPaid.toLocaleString()}`} icon={DollarSign} color="accent" />
+                </div>
+                {billing.stripeError && <p className="text-sm text-warning-600">{billing.stripeError}</p>}
+                <div className="card p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-slate-900 dark:text-white">Subscriptions</h3>
+                    <button onClick={() => exportCsv('subscriptions', billing.rows as unknown as Row[])} disabled={!billing.rows.length} className="btn-secondary text-xs flex items-center gap-1"><Download className="w-3 h-3" /> CSV</button>
+                  </div>
+                  {billing.rows.length === 0 ? <p className="text-sm text-slate-400">No users yet.</p> : (
+                    <div className="overflow-x-auto"><table className="w-full text-sm">
+                      <thead><tr className="text-left text-xs text-slate-500"><th className="py-2">User</th><th>Plan</th><th>Status</th><th>Renews</th><th>Invoices</th><th>Paid</th></tr></thead>
+                      <tbody>{billing.rows.map((r) => (
+                        <tr key={r.user_id} className="border-t border-slate-100 dark:border-slate-800">
+                          <td className="py-2">{r.email}</td><td className="capitalize">{r.plan}</td>
+                          <td className="capitalize">{r.status}{r.cancel_at_period_end ? ' (cancels)' : ''}</td>
+                          <td>{r.renews_on ? new Date(r.renews_on).toLocaleDateString() : '—'}</td>
+                          <td>{r.invoice_count}</td><td>${r.total_paid.toLocaleString()}</td>
+                        </tr>))}</tbody>
+                    </table></div>
+                  )}
+                </div>
+                <div className="card p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-slate-900 dark:text-white">Invoices</h3>
+                    <button onClick={() => exportCsv('invoices', billing.invoices as unknown as Row[])} disabled={!billing.invoices.length} className="btn-secondary text-xs flex items-center gap-1"><Download className="w-3 h-3" /> CSV</button>
+                  </div>
+                  {billing.invoices.length === 0 ? <p className="text-sm text-slate-400">No invoices yet.</p> : (
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800">{billing.invoices.map((i) => (
+                      <div key={i.id} className="flex items-center justify-between py-2 text-sm">
+                        <span className="flex items-center gap-2"><FileText className="w-4 h-4 text-slate-400" />{i.number ?? 'Invoice'} · {i.email}</span>
+                        <span className="flex items-center gap-3">{new Date(i.created).toLocaleDateString()} · ${(i.amount_paid / 100).toLocaleString()} · <span className="capitalize">{i.status}</span>
+                          {i.pdf_url && <a href={i.pdf_url} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">PDF</a>}</span>
+                      </div>))}</div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {tab === 'audit' && (
             <div className="card p-5">
