@@ -16,9 +16,9 @@ export const PLANS = {
 
 export type PlanKey = keyof typeof PLANS;
 
-// Key lookup: the locked `app_secrets` table (service role only) first, then the STRIPE_SECRET_KEY env var.
-async function getStripe(): Promise<Stripe> {
-  let key: string | undefined;
+// Secret lookup: the locked `app_secrets` table (service role only) first, then the env var of the same name.
+async function getAppSecret(name: string): Promise<string | undefined> {
+  let value: string | undefined;
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as unknown as {
@@ -30,12 +30,16 @@ async function getStripe(): Promise<Stripe> {
         };
       };
     };
-    const { data } = await db.from("app_secrets").select("value").eq("name", "STRIPE_SECRET_KEY").maybeSingle();
-    key = data?.value || undefined;
+    const { data } = await db.from("app_secrets").select("value").eq("name", name).maybeSingle();
+    value = data?.value || undefined;
   } catch {
-    key = undefined;
+    value = undefined;
   }
-  key = key || process.env["STRIPE_SECRET_KEY"];
+  return value || process.env[name];
+}
+
+async function getStripe(): Promise<Stripe> {
+  const key = await getAppSecret("STRIPE_SECRET_KEY");
   if (!key) throw new Error("Payments are not configured yet.");
   return new Stripe(key);
 }
@@ -61,8 +65,8 @@ export interface SubscriptionState {
   cancelAtPeriodEnd: boolean;
 }
 
-// Statuses that still entitle the user to their paid plan.
-const LIVE_STATUSES = new Set<string>(["active", "trialing", "past_due"]);
+// The paid plan is granted only while payment is in good standing (never for incomplete / past_due / canceled).
+const LIVE_STATUSES = new Set<string>(["active", "trialing"]);
 // Statuses the `subscriptions.status` CHECK constraint accepts.
 type DbStatus = "active" | "trialing" | "past_due" | "canceled" | "incomplete";
 
@@ -81,16 +85,15 @@ interface Loaded {
   dbStatus: DbStatus;
 }
 
-// One customer lookup + one subscription list per call (no duplicate Stripe requests).
-async function loadSubscription(stripe: Stripe, email: string): Promise<Loaded> {
-  const customerId = await findCustomerByEmail(stripe, email);
-  if (!customerId) return { state: FREE_STATE, customerId: null, subscriptionId: null, dbStatus: "active" };
-
+// Plan state for a known Stripe customer: one subscription list call, Stripe is the source of truth.
+async function loadByCustomerId(stripe: Stripe, customerId: string): Promise<Loaded> {
   const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 10 });
   const live = subs.data.find((s) => LIVE_STATUSES.has(s.status));
   if (!live) {
+    const pastDue = subs.data.some((s) => s.status === "past_due");
     const hadPaid = subs.data.some((s) => s.status === "canceled");
-    return { state: FREE_STATE, customerId, subscriptionId: null, dbStatus: hadPaid ? "canceled" : "active" };
+    const dbStatus: DbStatus = pastDue ? "past_due" : hadPaid ? "canceled" : "active";
+    return { state: FREE_STATE, customerId, subscriptionId: null, dbStatus };
   }
 
   const item = live.items.data[0];
@@ -113,13 +116,13 @@ async function loadSubscription(stripe: Stripe, email: string): Promise<Loaded> 
   };
 }
 
-export async function checkSubscription(email: string): Promise<SubscriptionState> {
-  return (await loadSubscription(await getStripe(), email)).state;
+async function loadSubscription(stripe: Stripe, email: string): Promise<Loaded> {
+  const customerId = await findCustomerByEmail(stripe, email);
+  if (!customerId) return { state: FREE_STATE, customerId: null, subscriptionId: null, dbStatus: "active" };
+  return loadByCustomerId(stripe, customerId);
 }
 
-// Persists the current Stripe state into the subscriptions table (service role; RLS denies user writes).
-export async function syncSubscriptionRow(userId: string, email: string): Promise<SubscriptionState> {
-  const loaded = await loadSubscription(await getStripe(), email);
+async function persistRow(userId: string, loaded: Loaded): Promise<void> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { error } = await supabaseAdmin.from("subscriptions").upsert(
     {
@@ -134,7 +137,21 @@ export async function syncSubscriptionRow(userId: string, email: string): Promis
     },
     { onConflict: "user_id" },
   );
-  if (error) console.error("[billing] subscription sync failed:", error.message);
+  if (error) throw new Error(`subscription sync failed: ${error.message}`);
+}
+
+export async function checkSubscription(email: string): Promise<SubscriptionState> {
+  return (await loadSubscription(await getStripe(), email)).state;
+}
+
+// Persists the current Stripe state into the subscriptions table (service role; RLS denies user writes).
+export async function syncSubscriptionRow(userId: string, email: string): Promise<SubscriptionState> {
+  const loaded = await loadSubscription(await getStripe(), email);
+  try {
+    await persistRow(userId, loaded);
+  } catch (e) {
+    console.error("[billing]", e instanceof Error ? e.message : e);
+  }
   return loaded.state;
 }
 
@@ -206,4 +223,64 @@ export async function listInvoices(email: string): Promise<InvoiceRow[]> {
     created: new Date(inv.created * 1000).toISOString(),
     pdfUrl: inv.invoice_pdf ?? null,
   }));
+}
+
+
+const WEBHOOK_EVENTS = new Set([
+  "checkout.session.completed",
+  "customer.subscription.created",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
+  "invoice.paid",
+  "invoice.payment_failed",
+]);
+
+function customerIdFromEvent(event: Stripe.Event): string | null {
+  const obj = event.data.object as { customer?: string | { id: string } | null };
+  const c = obj.customer;
+  if (!c) return null;
+  return typeof c === "string" ? c : c.id;
+}
+
+// Stripe -> app: keeps the subscriptions table in sync automatically after a payment.
+// The event payload is NOT trusted for plan data: after verifying the signature we only read the
+// customer id and then re-fetch the real subscription state from Stripe.
+export async function handleStripeWebhook(request: Request): Promise<Response> {
+  const secret = await getAppSecret("STRIPE_WEBHOOK_SECRET");
+  if (!secret) return new Response("Webhook not configured", { status: 503 });
+
+  const signature = request.headers.get("stripe-signature");
+  if (!signature) return new Response("Missing signature", { status: 400 });
+
+  const stripe = await getStripe();
+  const body = await request.text();
+  let event: Stripe.Event;
+  try {
+    event = await stripe.webhooks.constructEventAsync(body, signature, secret);
+  } catch {
+    return new Response("Invalid signature", { status: 400 });
+  }
+
+  if (!WEBHOOK_EVENTS.has(event.type)) return Response.json({ received: true, ignored: true });
+
+  const customerId = customerIdFromEvent(event);
+  if (!customerId) return Response.json({ received: true, ignored: true });
+
+  try {
+    const customer = await stripe.customers.retrieve(customerId);
+    const email = "deleted" in customer && customer.deleted ? null : (customer as Stripe.Customer).email;
+    if (!email) return Response.json({ received: true, ignored: true });
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: profile } = await supabaseAdmin.from("profiles").select("id").ilike("email", email).maybeSingle();
+    if (!profile) return Response.json({ received: true, ignored: "no matching user" });
+
+    const loaded = await loadByCustomerId(stripe, customerId);
+    await persistRow(profile.id, loaded);
+    return Response.json({ received: true });
+  } catch (e) {
+    console.error("[stripe-webhook]", e instanceof Error ? e.message : e);
+    // 500 makes Stripe retry later; the handler is idempotent (state is re-read from Stripe and upserted).
+    return new Response("Webhook handler error", { status: 500 });
+  }
 }
