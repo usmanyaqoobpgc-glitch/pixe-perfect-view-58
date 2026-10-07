@@ -13,7 +13,7 @@ const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent";
 
 const LOVABLE_RESPONSES_URL = "https://ai.gateway.lovable.dev/v1/responses";
-const LOVABLE_MODEL = "google/gemini-3-flash-preview";
+const LOVABLE_MODEL = "openai/gpt-6-astra";
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 export type AiProviderName = "gemini" | "lovable_ai" | "mock";
