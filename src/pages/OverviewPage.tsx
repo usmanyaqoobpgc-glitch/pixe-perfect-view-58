@@ -72,6 +72,8 @@ export function OverviewPage() {
   if (loading) return <LoadingState />;
 
   const totalRevenue = revenue.filter((r) => r.type === 'revenue').reduce((sum, r) => sum + Number(r.amount), 0);
+  const curMonth = new Date().toISOString().slice(0, 7);
+  const monthRevenue = revenue.filter((r) => r.type === 'revenue' && r.record_date.startsWith(curMonth)).reduce((sum, r) => sum + Number(r.amount), 0);
   const totalExpenses = revenue.filter((r) => r.type === 'expense').reduce((sum, r) => sum + Number(r.amount), 0);
   const revenueTarget = businesses.reduce((sum, b) => sum + Number(b.revenue_target), 0);
   const progressPct = revenueTarget > 0 ? (totalRevenue / revenueTarget) * 100 : 0;
@@ -108,7 +110,7 @@ export function OverviewPage() {
 
       <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 mb-2">Financials</p>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <StatCard label="Revenue" value={formatCurrency(totalRevenue)} icon={DollarSign} color="accent" />
+        <Link to="/revenue"><StatCard label={`Revenue · ${formatCurrency(monthRevenue)} this month`} value={formatCurrency(totalRevenue)} icon={DollarSign} color="accent" /></Link>
         <StatCard label="Expenses" value={formatCurrency(totalExpenses)} icon={DollarSign} color="error" />
         <StatCard label="Target" value={formatCurrency(revenueTarget)} icon={Target} color="primary" />
         <StatCard
