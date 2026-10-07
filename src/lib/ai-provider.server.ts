@@ -99,6 +99,8 @@ async function callLovableGateway(messages: ChatMessage[], json: boolean): Promi
   const input = messages
     .filter((m) => m.role !== "system")
     .map((m) => ({ role: m.role, content: m.content }));
+  // The json_object format requires the word "json" in the input messages.
+  if (json) input.push({ role: "user", content: "Respond with a single valid JSON object only." });
 
   const response = await fetch(LOVABLE_RESPONSES_URL, {
     method: "POST",

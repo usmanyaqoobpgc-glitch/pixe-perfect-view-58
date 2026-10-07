@@ -216,6 +216,24 @@ export type Database = {
           },
         ]
       }
+      app_secrets: {
+        Row: {
+          name: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          name: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          name?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           created_at: string

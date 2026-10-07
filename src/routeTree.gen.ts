@@ -25,6 +25,7 @@ import { Route as MarketResearchRouteImport } from './routes/market-research'
 import { Route as MarketingRouteImport } from './routes/marketing'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as PlannerRouteImport } from './routes/planner'
+import { Route as RevenueRouteImport } from './routes/revenue'
 import { Route as SecurityRouteImport } from './routes/security'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TasksRouteImport } from './routes/tasks'
@@ -111,6 +112,11 @@ const PlannerRoute = PlannerRouteImport.update({
   path: '/planner',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RevenueRoute = RevenueRouteImport.update({
+  id: '/revenue',
+  path: '/revenue',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SecurityRoute = SecurityRouteImport.update({
   id: '/security',
   path: '/security',
@@ -154,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/marketing': typeof MarketingRoute
   '/notifications': typeof NotificationsRoute
   '/planner': typeof PlannerRoute
+  '/revenue': typeof RevenueRoute
   '/security': typeof SecurityRoute
   '/settings': typeof SettingsRoute
   '/tasks': typeof TasksRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByTo {
   '/marketing': typeof MarketingRoute
   '/notifications': typeof NotificationsRoute
   '/planner': typeof PlannerRoute
+  '/revenue': typeof RevenueRoute
   '/security': typeof SecurityRoute
   '/settings': typeof SettingsRoute
   '/tasks': typeof TasksRoute
@@ -201,6 +209,7 @@ export interface FileRoutesById {
   '/marketing': typeof MarketingRoute
   '/notifications': typeof NotificationsRoute
   '/planner': typeof PlannerRoute
+  '/revenue': typeof RevenueRoute
   '/security': typeof SecurityRoute
   '/settings': typeof SettingsRoute
   '/tasks': typeof TasksRoute
@@ -226,6 +235,7 @@ export interface FileRouteTypes {
     | '/marketing'
     | '/notifications'
     | '/planner'
+    | '/revenue'
     | '/security'
     | '/settings'
     | '/tasks'
@@ -249,6 +259,7 @@ export interface FileRouteTypes {
     | '/marketing'
     | '/notifications'
     | '/planner'
+    | '/revenue'
     | '/security'
     | '/settings'
     | '/tasks'
@@ -272,6 +283,7 @@ export interface FileRouteTypes {
     | '/marketing'
     | '/notifications'
     | '/planner'
+    | '/revenue'
     | '/security'
     | '/settings'
     | '/tasks'
@@ -296,6 +308,7 @@ export interface RootRouteChildren {
   MarketingRoute: typeof MarketingRoute
   NotificationsRoute: typeof NotificationsRoute
   PlannerRoute: typeof PlannerRoute
+  RevenueRoute: typeof RevenueRoute
   SecurityRoute: typeof SecurityRoute
   SettingsRoute: typeof SettingsRoute
   TasksRoute: typeof TasksRoute
@@ -417,6 +430,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlannerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/revenue': {
+      id: '/revenue'
+      path: '/revenue'
+      fullPath: '/revenue'
+      preLoaderRoute: typeof RevenueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/security': {
       id: '/security'
       path: '/security'
@@ -472,6 +492,7 @@ const rootRouteChildren: RootRouteChildren = {
   MarketingRoute: MarketingRoute,
   NotificationsRoute: NotificationsRoute,
   PlannerRoute: PlannerRoute,
+  RevenueRoute: RevenueRoute,
   SecurityRoute: SecurityRoute,
   SettingsRoute: SettingsRoute,
   TasksRoute: TasksRoute,
