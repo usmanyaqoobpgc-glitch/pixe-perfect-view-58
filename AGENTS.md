@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Agent chat conversations are stored per user in agent_chat_threads/agent_chat_messages and the active one lives in the /agents?thread= URL — so reloads restore the same conversation.
