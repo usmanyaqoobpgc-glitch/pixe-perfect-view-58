@@ -12,5 +12,7 @@ export const Route = createFileRoute("/agents")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  validateSearch: (s: Record<string, unknown>): { thread?: string } =>
+    typeof s.thread === "string" ? { thread: s.thread } : {},
   component: AgentsPage,
 });
