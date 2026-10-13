@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -138,6 +138,63 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "agent_chat_threads_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_outbox: {
+        Row: {
+          agent_task_id: string | null
+          business_id: string
+          created_at: string
+          decided_at: string | null
+          error: string | null
+          id: string
+          kind: string
+          payload: Json
+          sent_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          agent_task_id?: string | null
+          business_id: string
+          created_at?: string
+          decided_at?: string | null
+          error?: string | null
+          id?: string
+          kind: string
+          payload?: Json
+          sent_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          agent_task_id?: string | null
+          business_id?: string
+          created_at?: string
+          decided_at?: string | null
+          error?: string | null
+          id?: string
+          kind?: string
+          payload?: Json
+          sent_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_outbox_agent_task_id_fkey"
+            columns: ["agent_task_id"]
+            isOneToOne: false
+            referencedRelation: "agent_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_outbox_business_id_fkey"
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "businesses"
@@ -928,6 +985,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_integrations: {
+        Row: {
+          email_from: string | null
+          resend_api_key: string | null
+          social_webhook_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          email_from?: string | null
+          resend_api_key?: string | null
+          social_webhook_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          email_from?: string | null
+          resend_api_key?: string | null
+          social_webhook_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       website_drafts: {
         Row: {
