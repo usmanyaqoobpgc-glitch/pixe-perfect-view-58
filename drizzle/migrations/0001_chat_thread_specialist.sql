@@ -1,0 +1,2 @@
+ALTER TABLE public.agent_chat_threads ADD COLUMN IF NOT EXISTS specialist text;
+CREATE INDEX IF NOT EXISTS agent_chat_threads_specialist_idx ON public.agent_chat_threads (business_id, user_id, specialist);
