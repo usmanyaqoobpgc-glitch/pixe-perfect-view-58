@@ -29,6 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { section: 'growth', label: 'Marketing', path: '/marketing', icon: Megaphone },
   { section: 'growth', label: 'Leads', path: '/leads', icon: UserPlus },
   { section: 'growth', label: 'Customers', path: '/customers', icon: Users2 },
+  { section: 'growth', label: 'Sales Pipeline', path: '/pipeline', icon: Handshake },
   { section: 'growth', label: 'Tasks', path: '/tasks', icon: CheckSquare },
   { section: 'analytics', label: 'Revenue & Analytics', path: '/analytics', icon: BarChart3 },
   { section: 'analytics', label: 'Revenue History', path: '/revenue', icon: CreditCard },
