@@ -738,7 +738,9 @@ export async function agentChat(
   businessId: string,
   history: { role: "user" | "assistant"; content: string }[],
   mode: "chat" | "document",
+  specialistType?: string | null,
 ) {
+  const spec = specialistType && specialistType in SPECIALISTS ? SPECIALISTS[specialistType as SpecialistType] : null;
   const business = await assertBusinessOwned(supabase, userId, businessId);
   const style = currentBrandStyle();
   const trimmed = history.slice(-20).map((m) => ({ role: m.role, content: String(m.content).slice(0, 8000) }));
@@ -747,7 +749,9 @@ export async function agentChat(
   }
   const { chatText } = await import("./ai-provider.server");
   const system = [
-    `You are the Business Agent for this business. You answer the owner's questions and write complete documents for them.`,
+    spec
+      ? `You are the ${spec.name} for this business. ${spec.role} Answer the owner's questions and write documents from that specialist perspective.`
+      : `You are the Business Agent for this business. You answer the owner's questions and write complete documents for them.`,
     describeBusiness(business as unknown as BusinessRow),
     mode === "document"
       ? "The owner wants a finished document. Write the complete document in Markdown with a title, headings and ready-to-use content. No preamble."
@@ -757,7 +761,7 @@ export async function agentChat(
   ].filter(Boolean).join("\n\n");
   try {
     const { text, provider } = await chatText([{ role: "system", content: system }, ...trimmed]);
-    await logActivity(supabase, { businessId, userId, agentId: null, action: mode === "document" ? "document_written" : "chat_answered", status: "completed", metadata: { provider } }).catch(() => {});
+    await logActivity(supabase, { businessId, userId, agentId: null, action: mode === "document" ? "document_written" : "chat_answered", status: "completed", metadata: { provider, specialist: spec ? specialistType : null } }).catch(() => {});
     return { reply: text, provider };
   } catch (err) {
     throw new Error(userSafeError(err));

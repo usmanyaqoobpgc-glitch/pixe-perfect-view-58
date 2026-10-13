@@ -10,14 +10,16 @@ import {
 type Msg = { id: string; role: 'user' | 'assistant'; content: string };
 type Thread = { id: string; title: string; updated_at: string };
 
-export function AgentChat({ businessId }: { businessId: string }) {
+export function AgentChat({ businessId, specialist, title }: { businessId: string; specialist?: string; title?: string }) {
   const listFn = useServerFn(listChatThreads);
   const createFn = useServerFn(createChatThread);
   const deleteFn = useServerFn(deleteChatThread);
   const messagesFn = useServerFn(getChatMessages);
   const sendFn = useServerFn(sendChatMessage);
   const navigate = useNavigate();
-  const { thread: threadId } = useSearch({ from: '/agents' });
+  const { thread: urlThread } = useSearch({ from: '/agents' });
+  const [localThread, setLocalThread] = useState<string | undefined>(undefined);
+  const threadId = specialist ? localThread : urlThread;
 
   const [threads, setThreads] = useState<Thread[]>([]);
   const [mode, setMode] = useState<'chat' | 'document'>('chat');
@@ -30,13 +32,13 @@ export function AgentChat({ businessId }: { businessId: string }) {
   const endRef = useRef<HTMLDivElement>(null);
 
   const goThread = (id: string | undefined) =>
-    navigate({ to: '/agents', search: id ? { thread: id } : {}, replace: false });
+    specialist ? setLocalThread(id) : navigate({ to: '/agents', search: id ? { thread: id } : {}, replace: false });
 
   async function refreshThreads() {
-    try { setThreads(await listFn({ data: { businessId } })); } catch { /* shown on action */ }
+    try { setThreads(await listFn({ data: { businessId, specialist: specialist ?? null } })); } catch { /* shown on action */ }
   }
 
-  useEffect(() => { refreshThreads(); }, [businessId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { refreshThreads(); }, [businessId, specialist]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let cancelled = false;
@@ -54,7 +56,7 @@ export function AgentChat({ businessId }: { businessId: string }) {
 
   async function newThread() {
     try {
-      const t = await createFn({ data: { businessId } });
+      const t = await createFn({ data: { businessId, specialist: specialist ?? null } });
       await refreshThreads();
       goThread(t.id);
       return t.id;
@@ -101,9 +103,9 @@ export function AgentChat({ businessId }: { businessId: string }) {
   }
 
   return (
-    <div className="card p-5 mb-6">
+    <div className={specialist ? '' : 'card p-5 mb-6'}>
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <h3 className="font-semibold text-slate-900 dark:text-white mr-auto">Ask your agent</h3>
+        <h3 className="font-semibold text-slate-900 dark:text-white mr-auto">{title ?? 'Ask your agent'}</h3>
         <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden text-sm">
           <button onClick={() => setMode('chat')} className={`px-3 py-1.5 flex items-center gap-1 ${mode === 'chat' ? 'bg-primary-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>
             <MessageSquare className="w-4 h-4" /> Ask

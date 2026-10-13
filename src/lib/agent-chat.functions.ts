@@ -3,16 +3,19 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const id = z.string().uuid("Invalid id");
+const specialist = z.string().regex(/^[a-z_]{2,40}$/).nullable().optional();
 
 export const listChatThreads = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((d: unknown) => z.object({ businessId: id }).parse(d))
+  .validator((d: unknown) => z.object({ businessId: id, specialist }).parse(d))
   .handler(async ({ data, context }) => {
-    const { data: rows, error } = await context.supabase
+    let q = context.supabase
       .from("agent_chat_threads")
       .select("id, title, updated_at")
       .eq("business_id", data.businessId)
-      .eq("user_id", context.userId)
+      .eq("user_id", context.userId);
+    q = data.specialist ? q.eq("specialist", data.specialist) : q.is("specialist", null);
+    const { data: rows, error } = await q
       .order("updated_at", { ascending: false })
       .limit(100);
     if (error) throw new Error("Could not load conversations.");
@@ -21,11 +24,15 @@ export const listChatThreads = createServerFn({ method: "POST" })
 
 export const createChatThread = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((d: unknown) => z.object({ businessId: id }).parse(d))
+  .validator((d: unknown) => z.object({ businessId: id, specialist }).parse(d))
   .handler(async ({ data, context }) => {
+    if (data.specialist) {
+      const { SPECIALISTS } = await import("./agent.server");
+      if (!(data.specialist in SPECIALISTS)) throw new Error("Unknown specialist.");
+    }
     const { data: row, error } = await context.supabase
       .from("agent_chat_threads")
-      .insert({ business_id: data.businessId, user_id: context.userId })
+      .insert({ business_id: data.businessId, user_id: context.userId, specialist: data.specialist ?? null })
       .select("id")
       .single();
     if (error || !row) throw new Error("Could not start a conversation.");
@@ -69,7 +76,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
     const sb = context.supabase;
     const { data: thread, error: tErr } = await sb
       .from("agent_chat_threads")
-      .select("id, business_id, title")
+      .select("id, business_id, title, specialist")
       .eq("id", data.threadId)
       .eq("user_id", context.userId)
       .maybeSingle();
@@ -94,7 +101,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
     const b = await import("./brand-style.server");
     const style = await b.loadBrandStyle(sb, thread.business_id);
     const res = await b.withBrandStyle(style, () =>
-      agentChat(sb, context.userId, thread.business_id, history, data.mode),
+      agentChat(sb, context.userId, thread.business_id, history, data.mode, thread.specialist),
     );
 
     const { error: aErr } = await sb.from("agent_chat_messages").insert({

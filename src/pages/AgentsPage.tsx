@@ -683,6 +683,11 @@ export function AgentsPage() {
                 <div className="flex-1 min-w-0">
                   <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white truncate">{agent.name}</h3>
                 </div>
+                {businessId && (
+                  <button onClick={() => setChatAgent(agent)} className="text-[11px] px-1.5 py-0.5 rounded border border-slate-200 dark:border-white/[0.1] text-slate-600 dark:text-slate-300 hover:text-primary-600 flex items-center gap-1" aria-label={`Chat with ${agent.name}`}>
+                    <MessagesSquare className="w-3 h-3" /> Chat
+                  </button>
+                )}
                 <span className={`text-[11px] tabular-nums px-1.5 py-0.5 rounded ${runCount > 0 ? 'bg-primary-500/10 text-primary-600 dark:text-primary-400' : 'text-slate-400'}`}>
                   {runCount} {runCount === 1 ? 'run' : 'runs'}
                 </span>
@@ -696,6 +701,14 @@ export function AgentsPage() {
           );
         })}
       </div>
+      {chatAgent && businessId && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4" onClick={() => setChatAgent(null)}>
+          <div className="card w-full max-w-5xl max-h-[90vh] overflow-y-auto p-5 relative" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setChatAgent(null)} aria-label="Close chat" className="absolute top-3 right-3 text-slate-400 hover:text-slate-700 dark:hover:text-white"><X className="w-5 h-5" /></button>
+            <AgentChat key={chatAgent.type} businessId={businessId} specialist={chatAgent.type} title={`Chat with ${chatAgent.name}`} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
