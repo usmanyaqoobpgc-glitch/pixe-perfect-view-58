@@ -296,6 +296,7 @@ export function AgentsPage() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [objective, setObjective] = useState('');
   const [starting, setStarting] = useState(false);
+  const [chatAgent, setChatAgent] = useState<(typeof AGENTS)[number] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
   const executingRef = useRef(false);
