@@ -17,6 +17,7 @@ import {
   Play, Pause, RefreshCw, Check, X, ChevronDown, ChevronUp, AlertTriangle, Loader2, Activity,
   PenTool, TrendingUp, Share2, Code, DollarSign, Briefcase, Headphones, Palette, Table, ClipboardList, GraduationCap,
   ExternalLink, Download, Copy, Mail,
+  MessagesSquare, X,
 } from 'lucide-react';
 import type { Business } from '@/lib/types';
 import { PENDING_OBJECTIVE_KEY } from '@/components/CommandBar';
