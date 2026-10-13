@@ -5,7 +5,7 @@ import { cn } from '@/lib/format';
 import {
   LayoutDashboard, Briefcase, Target, Sparkles, Search, Users, Globe,
   Megaphone, UserPlus, Users2, CheckSquare, BarChart3, Bot, Bell,
-  Shield, Settings, CreditCard, Moon, Sun, LogOut, Menu, X, ChevronRight,
+  Shield, Settings, CreditCard, Moon, Sun, LogOut, Menu, X, ChevronRight, Handshake,
   ShieldCheck, CheckCircle2,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
